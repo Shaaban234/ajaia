@@ -23,6 +23,7 @@
 - API-enforced permissions.
 - Postgres persistence.
 - Markdown export (stretch).
+- **Template gallery:** 7 starter templates with live previews.
 - **Write with AI:** create a document from a prompt; draft, continue, improve, shorten, expand, fix grammar or change tone of a selection, always with a preview before applying (free Grok via OpenRouter).
 
 **Incomplete / intentionally cut:**

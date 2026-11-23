@@ -9,6 +9,7 @@ import { IconCrown, IconEye, IconFile, IconPen, IconPlus, IconSparkles, IconUplo
 import CreateWithAiDialog from "./CreateWithAiDialog";
 import { useAiEnabled } from "./useAiEnabled";
 import { relativeTime } from "@/lib/ui";
+import { TEMPLATES } from "@/lib/templates";
 import type { DocumentView, User } from "@/lib/types";
 
 type ListDoc = DocumentView & { excerpt: string };
@@ -58,7 +59,7 @@ export default function Dashboard({ user }: { user: User }) {
   const router = useRouter();
   const toast = useToast();
   const [docs, setDocs] = useState<ListDoc[] | null>(null);
-  const [busy, setBusy] = useState<"new" | "upload" | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const aiEnabled = useAiEnabled();
@@ -73,9 +74,13 @@ export default function Dashboard({ user }: { user: User }) {
 
   useEffect(() => { load(); }, [load]);
 
-  async function createDoc() {
-    setBusy("new");
-    const res = await fetch("/api/documents", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  async function createDoc(templateId?: string) {
+    setBusy(templateId ?? "new");
+    const res = await fetch("/api/documents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(templateId ? { templateId } : {}),
+    });
     if (!res.ok) { setBusy(null); return toast("error", (await res.json()).error ?? "Could not create document."); }
     router.push(`/docs/${(await res.json()).document.id}`);
   }
@@ -115,11 +120,35 @@ export default function Dashboard({ user }: { user: User }) {
           <button className="btn btn-ai" onClick={() => setAiOpen(true)} disabled={!!busy}>
             <IconSparkles /> Create with AI
           </button>
-          <button className="btn btn-primary" onClick={createDoc} disabled={!!busy}>
+          <button className="btn btn-primary" onClick={() => createDoc()} disabled={!!busy}>
             {busy === "new" ? <span className="spinner" /> : <IconPlus />} New document
           </button>
           <input ref={fileRef} type="file" accept={ACCEPT} hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
         </div>
+
+        <section className="gallery anim-fade-up" style={{ animationDelay: ".05s" }} aria-label="Start a new document">
+          <div className="gallery-head">
+            <h2>Start a new document</h2>
+            <span className="muted">Pick a template. It becomes a normal editable document you own.</span>
+          </div>
+          <div className="gallery-row stagger">
+            <button className="tpl" onClick={() => createDoc()} disabled={!!busy}>
+              <div className="tpl-paper tpl-blank">{busy === "new" ? <span className="spinner" /> : <span className="tpl-plus" aria-hidden><i /><i /><i /><i /></span>}</div>
+              <div className="tpl-name">Blank document</div>
+              <div className="tpl-variant">&nbsp;</div>
+            </button>
+            {TEMPLATES.map((t) => (
+              <button key={t.id} className="tpl" onClick={() => createDoc(t.id)} disabled={!!busy} style={{ "--tpl-accent": t.accent } as React.CSSProperties}>
+                <div className="tpl-paper">
+                  <div className="tpl-scale" aria-hidden dangerouslySetInnerHTML={{ __html: t.html }} />
+                  {busy === t.id && <div className="tpl-busy"><span className="spinner" /></div>}
+                </div>
+                <div className="tpl-name">{t.name}</div>
+                <div className="tpl-variant">{t.variant}</div>
+              </button>
+            ))}
+          </div>
+        </section>
 
         <div className={`dropzone anim-fade-up ${drag ? "active" : ""}`} style={{ animationDelay: ".08s" }}>
           <div className="dropzone-icon"><IconUpload /></div>
@@ -133,14 +162,16 @@ export default function Dashboard({ user }: { user: User }) {
           <div className="section-head"><h2>My documents</h2>{docs && <span className="count">{owned.length}</span>}</div>
           {docs === null ? (
             <div className="grid">{[0, 1, 2, 3].map((i) => <div key={i} className="skeleton" />)}</div>
+          ) : owned.length === 0 ? (
+            <div className="empty anim-fade-up">
+              <div className="empty-icon"><IconFile /></div>
+              <div>
+                <strong style={{ display: "block", fontSize: 14, color: "var(--text)" }}>No documents yet</strong>
+                <span className="muted">Start from a template above, create a blank document, or drop a .docx / .md / .txt file here.</span>
+              </div>
+            </div>
           ) : (
             <div className="grid stagger">
-              <button className="new-card" onClick={createDoc} disabled={!!busy}>
-                <div style={{ textAlign: "center" }}>
-                  <div className="plus">{busy === "new" ? <span className="spinner" /> : <IconPlus />}</div>
-                  <strong style={{ fontSize: 14 }}>Blank document</strong>
-                </div>
-              </button>
               {owned.map((d) => <DocCard key={d.id} d={d} />)}
             </div>
           )}
@@ -163,12 +194,6 @@ export default function Dashboard({ user }: { user: User }) {
           )}
         </section>
 
-        {docs !== null && owned.length === 0 && (
-          <div className="empty anim-fade-up">
-            <div className="empty-icon"><IconFile /></div>
-            <span className="muted">Tip: try importing <code>samples/quarterly-review.docx</code> from the repo to see formatting preserved.</span>
-          </div>
-        )}
       </main>
       {aiOpen && <CreateWithAiDialog enabled={!!aiEnabled} onClose={() => setAiOpen(false)} />}
     </>

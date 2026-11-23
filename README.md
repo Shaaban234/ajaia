@@ -24,6 +24,7 @@ A lightweight collaborative document editor: create and format documents, import
   - The AI always shows a **preview** first. You choose Insert, Replace, Retry or Discard, so nothing changes in the document without your click.
   - It uses any OpenAI-compatible API, by default **OpenRouter's free Grok model** (`x-ai/grok-4.1-fast:free`). If that model is unavailable, it falls back to `openrouter/free`.
   - AI output goes through the same Markdown → HTML sanitizer as file import.
+- **Template gallery:** start from Blank or one of 7 templates (meeting notes, project proposal, product brief, status report, resume, letter, retrospective). Each card shows a live mini preview, and the result is a normal editable document.
 - **Docs-style editor:**
   - A letter-size page, a working menu bar (File, Edit, Insert, Format, AI, Help) and a text-style dropdown.
   - An Editing/Viewing indicator, a save status, and a keyboard-shortcut sheet.
@@ -36,7 +37,7 @@ Requires Node 20+.
 ```bash
 npm install
 npm run dev          # http://localhost:3000, data stored in .data/db.json
-npm test             # 19 tests: access rules, import, storage, AI helpers
+npm test             # 21 tests: access rules, import, storage, AI helpers, templates
 npm run build && npm start   # production build
 ```
 
