@@ -19,6 +19,13 @@
   - Building real-time co-editing inside the timebox. It was scoped out deliberately (see ARCHITECTURE.md).
 - [Add anything **you** changed after reviewing: naming, UX copy, a rule you disagreed with, etc.]
 
+## AI inside the product
+- I added "Write with AI" because this is an AI-native role. I designed it so AI suggestions are previews the user accepts or rejects, never silent edits.
+- **Verification:**
+  - Unit tests cover output cleanup, sanitizing, title extraction, the model fallback (with a mocked fetch) and the "not configured" path.
+  - The full UI flow was tested in a browser against a local mock of the OpenAI-compatible API, because the sandbox couldn't reach OpenRouter.
+  - [Add: you tested it against real Grok on the deployed URL.]
+
 ## How correctness and quality were verified
 - `npm test`: 13 tests cover owner/editor/viewer/no-access rules, sanitizing (script, `onclick` and `javascript:` stripped), .md/.txt conversion, unsupported types, title validation, share upsert/revoke, persistence across a fresh store instance, and concurrent writes.
 - **API checked with curl as three different users:** an unshared user gets 404, a viewer's edit gets 403, a non-owner rename gets 403, an unauthenticated request gets 401, and an unsupported upload gets 415.

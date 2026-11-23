@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import TopBar from "./TopBar";
 import Avatar from "./Avatar";
 import { useToast } from "./Toasts";
-import { IconCrown, IconEye, IconFile, IconPen, IconPlus, IconUpload, IconUsers } from "./Icons";
+import { IconCrown, IconEye, IconFile, IconPen, IconPlus, IconSparkles, IconUpload, IconUsers } from "./Icons";
+import CreateWithAiDialog from "./CreateWithAiDialog";
+import { useAiEnabled } from "./useAiEnabled";
 import { relativeTime } from "@/lib/ui";
 import type { DocumentView, User } from "@/lib/types";
 
@@ -58,6 +60,8 @@ export default function Dashboard({ user }: { user: User }) {
   const [docs, setDocs] = useState<ListDoc[] | null>(null);
   const [busy, setBusy] = useState<"new" | "upload" | null>(null);
   const [drag, setDrag] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const aiEnabled = useAiEnabled();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -107,6 +111,9 @@ export default function Dashboard({ user }: { user: User }) {
           <span className="spacer" />
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={!!busy}>
             {busy === "upload" ? <span className="spinner" /> : <IconUpload />} Import file
+          </button>
+          <button className="btn btn-ai" onClick={() => setAiOpen(true)} disabled={!!busy}>
+            <IconSparkles /> Create with AI
           </button>
           <button className="btn btn-primary" onClick={createDoc} disabled={!!busy}>
             {busy === "new" ? <span className="spinner" /> : <IconPlus />} New document
@@ -163,6 +170,7 @@ export default function Dashboard({ user }: { user: User }) {
           </div>
         )}
       </main>
+      {aiOpen && <CreateWithAiDialog enabled={!!aiEnabled} onClose={() => setAiOpen(false)} />}
     </>
   );
 }
