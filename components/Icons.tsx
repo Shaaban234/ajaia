@@ -53,3 +53,6 @@ export const IconOutdent = base(<><polyline points="7 8 3 12 7 16" /><line x1="2
 export const IconSearch = base(<><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.6" y2="16.6" /></>);
 export const IconChevronUp = base(<polyline points="18 15 12 9 6 15" />);
 export const IconCaret = (p: P) => <svg viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M7 10l5 5 5-5z" /></svg>;
+export const IconComment = base(<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />);
+export const IconCommentAdd = base(<><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><line x1="12" y1="7" x2="12" y2="13" /><line x1="9" y1="10" x2="15" y2="10" /></>);
+export const IconMore = base(<><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></>);

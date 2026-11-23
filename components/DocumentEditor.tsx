@@ -12,6 +12,8 @@ import Image from "@tiptap/extension-image";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import Toolbar, { type Command } from "./Toolbar";
 import Ruler from "./Ruler";
+import CommentsPanel, { type PendingComment } from "./CommentsPanel";
+import { CommentMark } from "@/lib/commentMark";
 import ShareDialog from "./ShareDialog";
 import AiPanel from "./AiPanel";
 import Avatar from "./Avatar";
@@ -20,7 +22,7 @@ import { useToast } from "./Toasts";
 import { useAiEnabled } from "./useAiEnabled";
 import {
   IconAlert, IconCheck, IconDownload, IconEye, IconFile, IconKeyboard, IconLock, IconLogout,
-  IconPlus, IconRedo, IconSparkles, IconTrash, IconUndo, IconUsers,
+  IconPlus, IconRedo, IconSparkles, IconTrash, IconUndo, IconUsers, IconComment, IconCommentAdd,
 } from "./Icons";
 import { relativeTime } from "@/lib/ui";
 import type { DocumentView, User } from "@/lib/types";
@@ -51,6 +53,10 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
   const [zoom, setZoom] = useState(100);
   const [spellcheck, setSpellcheck] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [pendingComment, setPendingComment] = useState<PendingComment | null>(null);
+  const [activeComment, setActiveComment] = useState<string | null>(null);
+  const [commentCount, setCommentCount] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<string | null>(null);
   const lastSaved = useRef<string>("");
@@ -93,6 +99,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
       Image.configure({ inline: false }),
       TaskList,
       TaskItem.configure({ nested: true }),
+      CommentMark,
       Placeholder.configure({ placeholder: "Type here, or press Ctrl+J to write with AI…" }),
       CharacterCount,
     ],
@@ -150,6 +157,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); flush(); }
       if (mod && e.key.toLowerCase() === "j" && editable.current) { e.preventDefault(); setAiOpen((o) => !o); }
+      if (mod && e.altKey && e.key.toLowerCase() === "m") { e.preventDefault(); startCommentRef.current(); }
       if (mod && e.shiftKey && e.key.toLowerCase() === "f") { e.preventDefault(); setCollapsed((c) => !c); }
       if (mod && e.key === "\\" && editable.current) { e.preventDefault(); editor?.chain().focus().unsetAllMarks().clearNodes().run(); }
     };
@@ -169,6 +177,36 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
   useEffect(() => {
     editor?.view.dom.setAttribute("spellcheck", String(spellcheck));
   }, [editor, spellcheck, doc]);
+
+  // Keep the tab title in sync with the document, like Docs.
+  useEffect(() => {
+    if (doc) document.title = `${doc.title} - Ajaia Docs`;
+  }, [doc]);
+
+  // Clicking highlighted text opens its comment thread.
+  useEffect(() => {
+    if (!editor) return;
+    const onClick = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement).closest("[data-comment-id]");
+      if (el) { setCommentsOpen(true); setActiveComment(el.getAttribute("data-comment-id")); }
+    };
+    const dom = editor.view.dom;
+    dom.addEventListener("click", onClick);
+    return () => dom.removeEventListener("click", onClick);
+  }, [editor]);
+
+  function startComment() {
+    if (!editor || !doc) return;
+    if (!(doc.role === "owner" || doc.role === "editor")) return toast("error", "Only people who can edit can start comments. You can reply to existing ones.");
+    const { from, to, empty } = editor.state.selection;
+    if (empty) return toast("error", "Select some text to comment on.");
+    const quote = editor.state.doc.textBetween(from, to, " ").trim();
+    if (!quote) return toast("error", "Select some text to comment on.");
+    setPendingComment({ id: crypto.randomUUID(), from, to, quote });
+    setCommentsOpen(true);
+  }
+  const startCommentRef = useRef(startComment);
+  startCommentRef.current = startComment;
 
   async function rename() {
     if (!doc || !isOwner) return;
@@ -232,6 +270,8 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
     { label: "Download as Markdown", run: () => { window.location.href = `/api/documents/${id}/export`; } },
     { label: "Delete document", run: remove, disabled: !isOwner },
     { label: "Keyboard shortcuts", run: () => setHelpOpen(true) },
+    { label: "Add comment", hint: "Ctrl+Alt+M", run: startComment, disabled: !canEdit },
+    { label: "Open comments", run: () => setCommentsOpen(true) },
   ];
 
   const people = doc ? [doc.ownerId, ...doc.shares.map((s) => s.userId)].filter((p) => p !== user.id) : [];
@@ -289,6 +329,8 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
                 { label: "Bulleted list", onClick: () => ed?.chain().focus().toggleBulletList().run(), disabled: !canEdit },
                 { label: "Numbered list", onClick: () => ed?.chain().focus().toggleOrderedList().run(), disabled: !canEdit },
                 { label: "Horizontal line", onClick: () => ed?.chain().focus().setHorizontalRule().run(), disabled: !canEdit },
+                "divider",
+                { label: "Comment", icon: <IconCommentAdd />, shortcut: "Ctrl+Alt+M", onClick: startComment, disabled: !canEdit },
               ]} />
               <Menu label="Format" items={[
                 { label: "Bold", shortcut: "Ctrl+B", onClick: () => ed?.chain().focus().toggleBold().run(), disabled: !canEdit },
@@ -313,6 +355,11 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
           </span>
         )}
         {doc && (
+          <button className={`icon-btn plain hdr-comments ${commentsOpen ? "on" : ""}`} onClick={() => setCommentsOpen((o) => !o)} title="Open comment history" aria-label="Comments">
+            <IconComment />{commentCount > 0 && <span className="hdr-badge">{commentCount}</span>}
+          </button>
+        )}
+        {doc && (
           <button className="share-pill" onClick={() => isOwner ? setShareOpen(true) : toast("error", "Only the owner can change sharing.")} title={isOwner ? "Share" : "Only the owner can share"}>
             <IconLock /><span>Share</span>
           </button>
@@ -331,6 +378,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
             onAi={() => setAiOpen((o) => !o)} aiOpen={aiOpen}
             collapsed={collapsed} onToggleCollapse={() => setCollapsed((c) => !c)}
             commands={commands}
+            onComment={startComment}
           />
           <Ruler zoom={zoom} />
         </div>
@@ -347,8 +395,14 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
           <div className="ai-dock"><AiPanel editor={editor} enabled={!!aiEnabled} onClose={() => setAiOpen(false)} /></div>
         )}
         {!doc && <div className="docs-page loading-sheet" />}
-        <div className="docs-page" style={{ display: doc ? "block" : "none", zoom: zoom / 100 } as React.CSSProperties}>
-          <EditorContent editor={editor} />
+        <div className={`page-row ${commentsOpen ? "with-comments" : ""}`}>
+          <div className="docs-page" style={{ display: doc ? "block" : "none", zoom: zoom / 100 } as React.CSSProperties}>
+            <EditorContent editor={editor} />
+          </div>
+          {doc && editor && commentsOpen && (
+            <CommentsPanel editor={editor} doc={doc} user={user} pending={pendingComment} onPendingDone={() => setPendingComment(null)}
+              activeId={activeComment} onActivate={setActiveComment} onClose={() => { setCommentsOpen(false); setPendingComment(null); }} onCount={setCommentCount} />
+          )}
         </div>
         {doc && (
           <div className="docs-statusbar">
@@ -371,7 +425,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
             <div className="modal-head"><div className="modal-icon"><IconKeyboard /></div><div><h2>Keyboard shortcuts</h2></div></div>
             <div className="modal-body shortcuts">
               {[["Bold", "Ctrl+B"], ["Italic", "Ctrl+I"], ["Underline", "Ctrl+U"], ["Bulleted list", "Ctrl+Shift+8"], ["Numbered list", "Ctrl+Shift+7"],
-                ["Heading 1–3", "Ctrl+Alt+1–3"], ["Clear formatting", "Ctrl+\\"], ["Checklist", "Ctrl+Shift+9"], ["Write with AI", "Ctrl+J"], ["Save now", "Ctrl+S"], ["Print", "Ctrl+P"], ["Hide menus", "Ctrl+Shift+F"], ["Undo / Redo", "Ctrl+Z / Ctrl+Y"]]
+                ["Heading 1–3", "Ctrl+Alt+1–3"], ["Clear formatting", "Ctrl+\\"], ["Checklist", "Ctrl+Shift+9"], ["Add comment", "Ctrl+Alt+M"], ["Write with AI", "Ctrl+J"], ["Save now", "Ctrl+S"], ["Print", "Ctrl+P"], ["Hide menus", "Ctrl+Shift+F"], ["Undo / Redo", "Ctrl+Z / Ctrl+Y"]]
                 .map(([a, k]) => <div key={a}><span>{a}</span><kbd>{k}</kbd></div>)}
             </div>
             <div className="modal-foot"><span className="muted">Mac: use ⌘ instead of Ctrl</span><button className="btn" onClick={() => setHelpOpen(false)}>Close</button></div>

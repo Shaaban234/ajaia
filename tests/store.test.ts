@@ -41,4 +41,15 @@ describe("JsonFileStore sharing flow", () => {
     const docs = await Promise.all(Array.from({ length: 10 }, (_, i) => store.create({ title: `D${i}`, content: "<p></p>", ownerId: "u_alice" })));
     expect(await store.listForUser("u_alice")).toHaveLength(docs.length);
   });
+
+  it("stores comment threads and deletes replies with their thread", async () => {
+    const store = freshStore();
+    const doc = await store.create({ title: "C", content: "<p>x</p>", ownerId: "u_alice" });
+    const root = await store.addComment({ documentId: doc.id, threadId: null, authorId: "u_alice", body: "Clarify?", quote: "x" });
+    await store.addComment({ documentId: doc.id, threadId: root.id, authorId: "u_bob", body: "Done", quote: "" });
+    expect(await store.listComments(doc.id)).toHaveLength(2);
+    expect((await store.setResolved(root.id, true))?.resolved).toBe(true);
+    await store.deleteComment(root.id);
+    expect(await store.listComments(doc.id)).toHaveLength(0);
+  });
 });

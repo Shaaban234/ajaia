@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type { DocumentRecord, LinkAccess, Share, ShareRole } from "./types";
+import type { Comment, DocumentRecord, LinkAccess, Share, ShareRole } from "./types";
 
 /**
  * Storage abstraction. Two implementations:
@@ -17,6 +17,12 @@ export interface Store {
   remove(id: string): Promise<boolean>;
   upsertShare(id: string, userId: string, role: ShareRole): Promise<DocumentRecord | null>;
   removeShare(id: string, userId: string): Promise<DocumentRecord | null>;
+  listComments(documentId: string): Promise<Comment[]>;
+  getComment(id: string): Promise<Comment | null>;
+  addComment(input: { id?: string; documentId: string; threadId: string | null; authorId: string; body: string; quote: string }): Promise<Comment>;
+  setResolved(id: string, resolved: boolean): Promise<Comment | null>;
+  /** Deleting a thread root deletes its replies. */
+  deleteComment(id: string): Promise<boolean>;
 }
 
 function now() {
@@ -28,6 +34,7 @@ function now() {
 // ---------------------------------------------------------------------------
 interface JsonDb {
   documents: DocumentRecord[];
+  comments?: Comment[];
 }
 
 export class JsonFileStore implements Store {
@@ -99,6 +106,7 @@ export class JsonFileStore implements Store {
     return this.mutate((db) => {
       const before = db.documents.length;
       db.documents = db.documents.filter((d) => d.id !== id);
+      db.comments = (db.comments ?? []).filter((c) => c.documentId !== id);
       return db.documents.length < before;
     });
   }
@@ -120,6 +128,41 @@ export class JsonFileStore implements Store {
       if (!doc) return null;
       doc.shares = doc.shares.filter((s) => s.userId !== userId);
       return doc;
+    });
+  }
+
+  async listComments(documentId: string) {
+    const db = await this.read();
+    return (db.comments ?? []).filter((c) => c.documentId === documentId).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async getComment(id: string) {
+    const db = await this.read();
+    return (db.comments ?? []).find((c) => c.id === id) ?? null;
+  }
+
+  addComment(input: { id?: string; documentId: string; threadId: string | null; authorId: string; body: string; quote: string }) {
+    return this.mutate((db) => {
+      const c: Comment = { id: input.id ?? randomUUID(), documentId: input.documentId, threadId: input.threadId, authorId: input.authorId, body: input.body, quote: input.quote, resolved: false, createdAt: now() };
+      (db.comments ??= []).push(c);
+      return c;
+    });
+  }
+
+  setResolved(id: string, resolved: boolean) {
+    return this.mutate((db) => {
+      const c = (db.comments ?? []).find((x) => x.id === id);
+      if (!c) return null;
+      c.resolved = resolved;
+      return c;
+    });
+  }
+
+  deleteComment(id: string) {
+    return this.mutate((db) => {
+      const before = (db.comments ?? []).length;
+      db.comments = (db.comments ?? []).filter((c) => c.id !== id && c.threadId !== id);
+      return db.comments.length < before;
     });
   }
 }
@@ -151,6 +194,17 @@ export class PgStore implements Store {
            PRIMARY KEY (document_id, user_id)
          );
          ALTER TABLE documents ADD COLUMN IF NOT EXISTS link_access TEXT NOT NULL DEFAULT 'restricted';
+         CREATE TABLE IF NOT EXISTS document_comments (
+           id TEXT PRIMARY KEY,
+           document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+           thread_id TEXT REFERENCES document_comments(id) ON DELETE CASCADE,
+           author_id TEXT NOT NULL,
+           body TEXT NOT NULL,
+           quote TEXT NOT NULL DEFAULT '',
+           resolved BOOLEAN NOT NULL DEFAULT false,
+           created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+         );
+         CREATE INDEX IF NOT EXISTS idx_comments_doc ON document_comments(document_id);
          CREATE INDEX IF NOT EXISTS idx_documents_owner ON documents(owner_id);
          CREATE INDEX IF NOT EXISTS idx_shares_user ON document_shares(user_id);`
       )
@@ -244,6 +298,46 @@ export class PgStore implements Store {
     await this.init();
     await this.pool.query("DELETE FROM document_shares WHERE document_id = $1 AND user_id = $2", [id, userId]);
     return this.get(id);
+  }
+  private toComment(r: Record<string, unknown>): Comment {
+    return {
+      id: r.id as string, documentId: r.document_id as string, threadId: (r.thread_id as string) ?? null,
+      authorId: r.author_id as string, body: r.body as string, quote: r.quote as string,
+      resolved: Boolean(r.resolved), createdAt: new Date(r.created_at as string).toISOString(),
+    };
+  }
+
+  async listComments(documentId: string) {
+    await this.init();
+    const res = await this.pool.query("SELECT * FROM document_comments WHERE document_id = $1 ORDER BY created_at", [documentId]);
+    return res.rows.map((r) => this.toComment(r));
+  }
+
+  async getComment(id: string) {
+    await this.init();
+    const res = await this.pool.query("SELECT * FROM document_comments WHERE id = $1", [id]);
+    return res.rows[0] ? this.toComment(res.rows[0]) : null;
+  }
+
+  async addComment(input: { id?: string; documentId: string; threadId: string | null; authorId: string; body: string; quote: string }) {
+    await this.init();
+    const res = await this.pool.query(
+      "INSERT INTO document_comments (id, document_id, thread_id, author_id, body, quote) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+      [input.id ?? randomUUID(), input.documentId, input.threadId, input.authorId, input.body, input.quote]
+    );
+    return this.toComment(res.rows[0]);
+  }
+
+  async setResolved(id: string, resolved: boolean) {
+    await this.init();
+    const res = await this.pool.query("UPDATE document_comments SET resolved = $2 WHERE id = $1 RETURNING *", [id, resolved]);
+    return res.rows[0] ? this.toComment(res.rows[0]) : null;
+  }
+
+  async deleteComment(id: string) {
+    await this.init();
+    const res = await this.pool.query("DELETE FROM document_comments WHERE id = $1", [id]);
+    return (res.rowCount ?? 0) > 0;
   }
 }
 

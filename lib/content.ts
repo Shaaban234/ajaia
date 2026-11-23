@@ -12,7 +12,7 @@ const ALLOWED: sanitizeHtml.IOptions = {
   allowedAttributes: {
     a: ["href", "target", "rel"],
     img: ["src", "alt", "title"],
-    span: ["style"],
+    span: ["style", "data-comment-id"],
     mark: ["style", "data-color"],
     p: ["style"], h1: ["style"], h2: ["style"], h3: ["style"],
     ul: ["data-type"],

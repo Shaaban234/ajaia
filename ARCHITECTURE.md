@@ -39,9 +39,14 @@ Ownership is a column rather than a share row, so a document can never lose its 
 - **Provider-agnostic:** it uses an OpenAI-compatible `/chat/completions` endpoint, defaulting to OpenRouter's free Grok. Free model IDs get retired, so it falls back to `openrouter/free`, and the model name is returned to the UI for transparency.
 - **Guardrails:** requires sign-in, validates input lengths, applies a per-user rate limit (12 requests/minute per instance) and a 45 s timeout, and gives clear errors for 429/5xx responses. Nothing breaks when no key is configured.
 
+## Comments
+- `document_comments(id, document_id, thread_id → root, author_id, body, quote, resolved, created_at)`.
+- A thread is anchored by a `comment` mark (`<span data-comment-id>`) in the document HTML, so the highlight moves with edits like any other formatting. The comment text lives in its own table.
+- Starting a thread needs edit rights, because it adds the anchor to the content. Replying only needs view access. Resolving needs edit rights. Deleting is limited to the author or the owner. Deleting a document cascades to its comments.
+
 ## Intentionally deprioritized
 - **Real-time co-editing** (CRDT/Yjs + websockets). This is the biggest gap and the right next step, but it would have consumed most of the timebox and needs a stateful server.
-- Comments, suggestions and version history.
+- Suggestion mode and version history. Comments are implemented; real-time presence is not.
 - Real authentication and invites to people outside the user list.
 - Images, tables, attachments and non-text formats in import.
 

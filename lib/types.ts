@@ -28,6 +28,19 @@ export interface DocumentRecord {
   updatedAt: string;
 }
 
+export interface Comment {
+  id: string;
+  documentId: string;
+  /** null for a thread's first comment; otherwise the id of the thread root. */
+  threadId: string | null;
+  authorId: string;
+  body: string;
+  /** The text that was selected when the thread started (root comments only). */
+  quote: string;
+  resolved: boolean;
+  createdAt: string;
+}
+
 /** What the API returns to a client: the record plus the caller's role. */
 export interface DocumentView extends DocumentRecord {
   role: Role;

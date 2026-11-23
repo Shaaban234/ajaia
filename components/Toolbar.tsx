@@ -6,7 +6,7 @@ import Popover from "./Popover";
 import {
   IconAlignCenter, IconAlignJustify, IconAlignLeft, IconAlignRight, IconBold, IconCaret, IconCheck, IconChecklist, IconChevronUp,
   IconClearFormat, IconEye, IconHighlight, IconImage, IconIndent, IconItalic, IconLineSpacing, IconLink, IconList, IconListOrdered,
-  IconMinus, IconOutdent, IconPaint, IconPen, IconPlus, IconPrint, IconQuote, IconRedo, IconSearch, IconSparkles, IconSpell, IconUnderline, IconUndo,
+  IconCommentAdd, IconMinus, IconOutdent, IconPaint, IconPen, IconPlus, IconPrint, IconQuote, IconRedo, IconSearch, IconSparkles, IconSpell, IconUnderline, IconUndo,
 } from "./Icons";
 
 export type Command = { label: string; run: () => void; hint?: string; disabled?: boolean };
@@ -46,6 +46,7 @@ export interface ToolbarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   commands: Command[];
+  onComment: () => void;
 }
 
 function Swatches({ onPick, onReset, resetLabel }: { onPick: (c: string) => void; onReset: () => void; resetLabel: string }) {
@@ -270,6 +271,7 @@ export default function Toolbar(p: ToolbarProps) {
       <Popover tip="Insert image (by URL)" disabled={!can} trigger={<IconImage />}>
         {(close) => <UrlForm placeholder="Image URL, e.g. https://…/photo.png" submit={(url) => { c().setImage({ src: url }).run(); close(); }} />}
       </Popover>
+      {B("Add comment (Ctrl+Alt+M)", false, p.onComment, <IconCommentAdd />, !p.canEdit)}
       <span className="tb-sep" />
 
       <Popover tip="Align & indent" disabled={!can} trigger={<span className="tb-text"><AlignIcon width={18} height={18} /><IconCaret className="caret" /></span>}>

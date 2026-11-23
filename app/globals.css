@@ -660,3 +660,47 @@ kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 2px 7p
 .font-label { max-width: 84px; }
 .docs-toolbar .tb-btn.ai .ai-label { display: none; }
 @media (min-width: 1500px) { .docs-toolbar .tb-btn.ai .ai-label { display: inline; } .menu-search { width: 118px; } }
+
+/* ------------------------------------------------------------------ */
+/* Comments                                                            */
+/* ------------------------------------------------------------------ */
+.page-row { display: flex; justify-content: center; align-items: flex-start; gap: 20px; }
+.page-row .docs-page { margin: 0; flex: none; }
+.docs-page .ProseMirror .comment-mark { background: #fde293; border-bottom: 2px solid #f9cb38; border-radius: 1px; cursor: pointer; transition: background .2s; }
+.docs-page .ProseMirror .comment-mark:hover { background: #fcd463; }
+.hdr-comments { position: relative; width: 40px; height: 40px; border-radius: 50%; color: #444746; }
+.hdr-comments svg { width: 20px; height: 20px; }
+.hdr-comments.on { background: #d3e3fd; color: #041e49; }
+.hdr-badge { position: absolute; top: 4px; right: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #0b57d0; color: #fff; font-size: 10px; font-weight: 700; display: grid; place-items: center; }
+.comments-panel { position: sticky; top: 148px; width: 320px; flex: none; max-height: calc(100vh - 170px); overflow-y: auto; animation: fade-up .3s var(--ease) both; }
+.cp-head { display: flex; align-items: center; gap: 8px; padding: 6px 4px 12px; color: #1f1f1f; }
+.cp-link { border: none; background: none; color: #0b57d0; font-size: 13px; font-weight: 500; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.cp-link:hover { background: #e8f0fe; }
+.cp-empty { display: grid; justify-items: center; gap: 6px; padding: 28px 16px; text-align: center; color: #80868b; background: #fff; border: 1px dashed #dadce0; border-radius: 10px; }
+.cp-empty p { margin: 4px 0 0; color: #3c4043; font-weight: 500; }
+.threads { display: grid; gap: 10px; }
+.thread { padding: 12px 14px; border-radius: 10px; background: #fff; box-shadow: 0 1px 2px rgba(60, 64, 67, .2), 0 1px 3px 1px rgba(60, 64, 67, .1); cursor: pointer; transition: box-shadow .2s, transform .2s var(--ease); animation: fade-up .3s var(--ease) both; }
+.thread:hover { box-shadow: 0 1px 3px rgba(60, 64, 67, .3), 0 4px 8px 3px rgba(60, 64, 67, .15); }
+.thread.active { cursor: default; box-shadow: 0 1px 3px rgba(60, 64, 67, .3), 0 4px 8px 3px rgba(60, 64, 67, .15); transform: translateX(-6px); }
+.thread.resolved { opacity: .65; }
+.thread.new { margin-bottom: 10px; }
+.thread-quote { margin-bottom: 8px; padding-left: 8px; border-left: 3px solid #f9cb38; font-size: 12.5px; color: #5f6368; font-style: italic; }
+.c-item + .c-item { margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f3f4; }
+.c-author { display: flex; align-items: center; gap: 8px; }
+.c-author strong { display: block; font-size: 13.5px; color: #1f1f1f; font-weight: 600; }
+.c-time { font-size: 12px; color: #80868b; }
+.avatar-sm .avatar { width: 28px; height: 28px; font-size: 11px; }
+.c-author .icon-btn { width: 28px; height: 28px; }
+.c-author .icon-btn.resolve { color: #0b57d0; }
+.c-author .icon-btn.resolve:hover { background: #e8f0fe; color: #0842a0; }
+.c-body { margin: 6px 0 0 36px; font-size: 14px; line-height: 1.5; color: #1f1f1f; white-space: pre-wrap; word-wrap: break-word; }
+.c-input { width: 100%; margin-top: 8px; padding: 8px 10px; border: 1px solid #c4c7c5; border-radius: 18px; font: inherit; font-size: 14px; resize: none; outline: none; transition: border-color .15s, box-shadow .15s; }
+.c-input:focus { border-color: #0b57d0; box-shadow: 0 0 0 1px #0b57d0; }
+.thread.new .c-input { border-radius: 8px; }
+.c-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+.c-actions .btn-primary { border-radius: 999px; }
+.c-reply { margin-top: 4px; }
+@media (max-width: 1240px) {
+  .comments-panel { position: fixed; top: auto; bottom: 0; right: 0; left: auto; width: min(380px, 100vw); max-height: 70vh; z-index: 40; padding: 12px; background: #f9fbfd; border-radius: 16px 16px 0 0; box-shadow: 0 -8px 30px rgba(30, 40, 70, .2); }
+}
+@media print { .comments-panel { display: none !important; } .docs-page .ProseMirror .comment-mark { background: none; border: none; } }

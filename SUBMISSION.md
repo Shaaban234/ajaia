@@ -23,6 +23,7 @@
 - API-enforced permissions.
 - Postgres persistence.
 - Markdown export (stretch).
+- **Comments:** anchored threads with replies, resolve and delete, plus role-based permissions.
 - **Full Docs-style toolbar:** fonts, sizes, colours, highlight, links, images, alignment, line spacing, checklists, indent, paint format, zoom, print, spellcheck, menu search, and an Editing/Viewing mode.
 - **General access:** "Anyone with the link" (viewer or editor) plus Copy link.
 - **Template gallery:** 7 starter templates with live previews.
@@ -30,7 +31,7 @@
 
 **Incomplete / intentionally cut:**
 - Real-time co-editing: concurrent edits are last-write-wins.
-- Comments and version history.
+- Version history and suggestion mode.
 - Real authentication (mocked with seeded users).
 
 **Next 2–4 hours:**
