@@ -735,3 +735,36 @@ kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 2px 7p
 .vwho .avatar { width: 18px; height: 18px; font-size: 8px; box-shadow: none; }
 .vdot { width: 10px; height: 10px; margin-top: 5px; flex: none; border-radius: 50%; border: 2px solid #9aa0a6; background: #fff; }
 .vdot.current { border-color: #1a73e8; background: #1a73e8; }
+
+/* ------------------------------------------------------------------ */
+/* Document outline                                                    */
+/* ------------------------------------------------------------------ */
+.docs-canvas { position: relative; }
+.outline-toggle { position: absolute; top: 22px; left: 26px; z-index: 5; width: 48px; height: 48px; display: grid; place-items: center; border: none; border-radius: 50%; background: #edf2fa; color: #444746; cursor: pointer; transition: background .15s, transform .2s var(--ease); animation: fade-in .3s ease both; }
+.outline-toggle:hover { background: #dde3ea; transform: scale(1.05); }
+.outline-toggle svg { width: 20px; height: 20px; }
+.outline { position: absolute; top: 12px; left: 16px; z-index: 5; width: 250px; max-height: calc(100vh - 170px); overflow-y: auto; padding: 8px 8px 16px; animation: fade-up .25s var(--ease) both; }
+.outline-back { width: 40px; height: 40px; display: grid; place-items: center; border: none; border-radius: 50%; background: none; color: #444746; cursor: pointer; }
+.outline-back:hover { background: #e9eef6; }
+.outline-back svg { width: 20px; height: 20px; }
+.outline-head { margin: 10px 0 10px 12px; font-size: 14px; font-weight: 500; color: #1f1f1f; }
+.outline-doc { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 16px; border-radius: 22px; background: #d3e3fd; color: #041e49; font-size: 14px; font-weight: 500; }
+.outline-doc svg { width: 18px; height: 18px; flex: none; }
+.outline-doc span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.outline-list { list-style: none; margin: 8px 0 0 28px; padding: 0 0 0 4px; border-left: 2px solid #e1e3e6; }
+.outline-list button { display: block; width: 100%; padding: 8px 10px; border: none; border-radius: 6px; background: none; text-align: left; font-size: 14px; color: #3c4043; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background .12s, color .12s; }
+.outline-list button:hover { background: #e9eef6; }
+.outline-list button.lvl-2 { padding-left: 22px; }
+.outline-list button.lvl-3 { padding-left: 36px; font-size: 13.5px; }
+.outline-list button.current { color: #0b57d0; font-weight: 600; }
+.outline-empty { margin: 14px 12px; font-size: 13px; color: #80868b; line-height: 1.5; }
+@media (max-width: 1400px) {
+  .outline { position: fixed; top: 130px; left: 0; bottom: 0; max-height: none; background: #f9fbfd; box-shadow: 8px 0 24px -12px rgba(30, 40, 70, .25); z-index: 30; }
+}
+@media (max-width: 860px) { .outline-toggle { top: 10px; left: 10px; width: 40px; height: 40px; } }
+@media print { .outline, .outline-toggle { display: none !important; } }
+/* Outline stays put while the page scrolls (like Docs) */
+.outline-toggle { position: fixed; top: 160px; left: 26px; }
+.outline { position: fixed; top: 150px; left: 16px; max-height: calc(100vh - 170px); }
+@media (max-width: 1400px) { .outline { top: 130px; } }
+@media (max-width: 860px) { .outline-toggle { top: auto; bottom: 90px; left: 12px; box-shadow: 0 4px 14px -4px rgba(30, 40, 70, .35); } }

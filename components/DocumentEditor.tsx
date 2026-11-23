@@ -14,6 +14,7 @@ import Toolbar, { type Command } from "./Toolbar";
 import Ruler from "./Ruler";
 import CommentsPanel, { type PendingComment } from "./CommentsPanel";
 import VersionsPanel from "./VersionsPanel";
+import Outline from "./Outline";
 import { CommentMark } from "@/lib/commentMark";
 import ShareDialog from "./ShareDialog";
 import AiPanel from "./AiPanel";
@@ -23,7 +24,7 @@ import { useToast } from "./Toasts";
 import { useAiEnabled } from "./useAiEnabled";
 import {
   IconAlert, IconCheck, IconDownload, IconEye, IconFile, IconKeyboard, IconLock, IconLogout,
-  IconPlus, IconRedo, IconSparkles, IconTrash, IconUndo, IconUsers, IconComment, IconCommentAdd, IconHistory,
+  IconPlus, IconRedo, IconSparkles, IconTrash, IconUndo, IconUsers, IconComment, IconCommentAdd, IconHistory, IconOutline,
 } from "./Icons";
 import { relativeTime } from "@/lib/ui";
 import type { DocumentView, Presence, User, Version } from "@/lib/types";
@@ -59,6 +60,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
   const [activeComment, setActiveComment] = useState<string | null>(null);
   const [commentCount, setCommentCount] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [outlineOpen, setOutlineOpen] = useState(false);
   const [preview, setPreview] = useState<Version | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
   const [presence, setPresence] = useState<Presence[]>([]);
@@ -383,6 +385,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
     { label: "Add comment", hint: "Ctrl+Alt+M", run: startComment, disabled: !canEdit },
     { label: "Open comments", run: () => setCommentsOpen(true) },
     { label: "Version history", hint: "Ctrl+Alt+Shift+H", run: openHistory },
+    { label: "Show document outline", run: () => setOutlineOpen(true) },
   ];
 
   const people = doc ? [doc.ownerId, ...doc.shares.map((s) => s.userId)].filter((p) => p !== user.id) : [];
@@ -428,6 +431,11 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
                 { label: "Version history", icon: <IconHistory />, shortcut: "Ctrl+Alt+Shift+H", onClick: openHistory },
                 "divider",
                 { label: "Delete document", icon: <IconTrash />, onClick: remove, disabled: !isOwner, danger: true },
+              ]} />
+              <Menu label="View" items={[
+                { label: outlineOpen ? "Hide document outline" : "Show document outline", icon: <IconOutline />, onClick: () => setOutlineOpen((o) => !o) },
+                { label: collapsed ? "Show menus" : "Hide menus", shortcut: "Ctrl+Shift+F", onClick: () => setCollapsed((c) => !c) },
+                { label: mode === "editing" ? "Switch to Viewing mode" : "Switch to Editing mode", onClick: () => setMode((m) => (m === "editing" ? "viewing" : "editing")), disabled: !canEdit },
               ]} />
               <Menu label="Edit" items={[
                 { label: "Undo", icon: <IconUndo />, shortcut: "Ctrl+Z", onClick: () => ed?.chain().focus().undo().run(), disabled: !canEdit },
@@ -517,7 +525,10 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
         </div>
       )}
 
-      <main className="docs-canvas">
+      <main className={`docs-canvas ${outlineOpen ? "outline-on" : ""}`}>
+        {doc && editor && !preview && (outlineOpen
+          ? <Outline editor={editor} title={doc.title} onClose={() => setOutlineOpen(false)} />
+          : <button className="outline-toggle" onClick={() => setOutlineOpen(true)} title="Show document outline (Ctrl+Alt+A, Ctrl+Alt+H)" aria-label="Show document outline"><IconOutline /></button>)}
         {doc && !canEdit && (
           <div className="readonly-banner">
             <IconEye />

@@ -28,12 +28,13 @@
 - **Comments:** anchored threads with replies, resolve and delete, plus role-based permissions.
 - **Full Docs-style toolbar:** fonts, sizes, colours, highlight, links, images, alignment, line spacing, checklists, indent, paint format, zoom, print, spellcheck, menu search, and an Editing/Viewing mode.
 - **General access:** "Anyone with the link" (viewer or editor) plus Copy link.
+- **Document outline:** clickable headings sidebar that highlights the current section.
 - **Template gallery:** 7 starter templates with live previews.
 - **Write with AI:** create a document from a prompt; draft, continue, improve, shorten, expand, fix grammar or change tone of a selection, always with a preview before applying (free Grok via OpenRouter).
 
 **Incomplete / intentionally cut:**
-- Real-time co-editing: concurrent edits are last-write-wins.
 - Suggestion mode.
+- Multiple tabs inside one document (only the headings outline is built).
 - Character-level simultaneous co-editing. Presence, live refresh and conflict protection are implemented with polling instead.
 - Real authentication (mocked with seeded users).
 
