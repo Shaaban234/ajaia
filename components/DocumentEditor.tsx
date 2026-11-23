@@ -25,6 +25,7 @@ import { useAiEnabled } from "./useAiEnabled";
 import {
   IconAlert, IconCheck, IconDownload, IconEye, IconFile, IconKeyboard, IconLock, IconLogout,
   IconPlus, IconRedo, IconSparkles, IconTrash, IconUndo, IconUsers, IconComment, IconCommentAdd, IconHistory, IconOutline,
+  IconCaret,
 } from "./Icons";
 import { relativeTime } from "@/lib/ui";
 import type { DocumentView, Presence, User, Version } from "@/lib/types";
@@ -61,6 +62,10 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
   const [commentCount, setCommentCount] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
+  const [wcOpen, setWcOpen] = useState(false);
+  const [wcLive, setWcLiveState] = useState(false);
+  useEffect(() => { try { setWcLiveState(localStorage.getItem("ajaia:wordcount") === "1"); } catch { /* storage unavailable */ } }, []);
+  const setWcLive = (v: boolean) => { setWcLiveState(v); try { localStorage.setItem("ajaia:wordcount", v ? "1" : "0"); } catch { /* ignore */ } };
   const [preview, setPreview] = useState<Version | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
   const [presence, setPresence] = useState<Presence[]>([]);
@@ -140,7 +145,18 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
 
   const counts = useEditorState({
     editor,
-    selector: ({ editor: e }) => (e ? { words: e.storage.characterCount.words() as number, chars: e.storage.characterCount.characters() as number } : { words: 0, chars: 0 }),
+    selector: ({ editor: e }) => {
+      if (!e) return { words: 0, chars: 0, noSpaces: 0, selWords: 0 };
+      const text = e.state.doc.textBetween(0, e.state.doc.content.size, " ", " ");
+      const { from, to, empty } = e.state.selection;
+      const sel = empty ? "" : e.state.doc.textBetween(from, to, " ", " ");
+      return {
+        words: e.storage.characterCount.words() as number,
+        chars: e.storage.characterCount.characters() as number,
+        noSpaces: text.replace(/\s/g, "").length,
+        selWords: sel.trim() ? sel.trim().split(/\s+/).length : 0,
+      };
+    },
   });
 
   // Load the document once the editor exists.
@@ -176,6 +192,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
       if (mod && e.key.toLowerCase() === "j" && editable.current) { e.preventDefault(); setAiOpen((o) => !o); }
       if (mod && e.altKey && e.shiftKey && e.key.toLowerCase() === "h") { e.preventDefault(); openHistoryRef.current(); }
       if (mod && e.altKey && e.key.toLowerCase() === "m") { e.preventDefault(); startCommentRef.current(); }
+      if (mod && e.shiftKey && e.key.toLowerCase() === "c") { e.preventDefault(); setWcOpen(true); }
       if (mod && e.shiftKey && e.key.toLowerCase() === "f") { e.preventDefault(); setCollapsed((c) => !c); }
       if (mod && e.key === "\\" && editable.current) { e.preventDefault(); editor?.chain().focus().unsetAllMarks().clearNodes().run(); }
     };
@@ -459,6 +476,10 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
                 "divider",
                 { label: "Clear formatting", shortcut: "Ctrl+\\", onClick: () => ed?.chain().focus().unsetAllMarks().clearNodes().run(), disabled: !canEdit },
               ]} />
+              <Menu label="Tools" items={[
+                { label: "Word count", shortcut: "Ctrl+Shift+C", onClick: () => setWcOpen(true) },
+                { label: spellcheck ? "Turn off spell check" : "Turn on spell check", onClick: () => setSpellcheck((v) => !v) },
+              ]} />
               <Menu label="AI" items={[
                 { label: "Write with AI", icon: <IconSparkles />, shortcut: "Ctrl+J", onClick: () => setAiOpen(true), disabled: !canEdit },
               ]} />
@@ -575,13 +596,6 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
               activeId={activeComment} onActivate={setActiveComment} onClose={() => { setCommentsOpen(false); setPendingComment(null); }} onCount={setCommentCount} />
           )}
         </div>
-        {doc && (
-          <div className="docs-statusbar">
-            <span>{counts?.words ?? 0} words</span>
-            <span>{counts?.chars ?? 0} characters</span>
-            <span>Owner: {NAMES[doc.ownerId]}</span>
-          </div>
-        )}
       </main>
 
       {doc && canEdit && mode === "editing" && !aiOpen && (
@@ -590,13 +604,42 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
         </button>
       )}
 
+      {doc && wcLive && !wcOpen && (
+        <button className="wc-chip" onClick={() => setWcOpen(true)} title="Word count (Ctrl+Shift+C)">
+          {counts?.selWords ? `${counts.selWords.toLocaleString()} of ${(counts.words ?? 0).toLocaleString()} words` : `${(counts?.words ?? 0).toLocaleString()} ${counts?.words === 1 ? "word" : "words"}`}
+          <IconCaret className="caret" />
+        </button>
+      )}
+
+      {wcOpen && (
+        <div className="modal-backdrop" onMouseDown={() => setWcOpen(false)}>
+          <div className="wc-dialog" role="dialog" aria-labelledby="wc-title" onMouseDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter") setWcOpen(false); }}>
+            <h2 id="wc-title">Word count</h2>
+            <table>
+              <tbody>
+                <tr><td>Pages</td><td>{Math.max(1, Math.ceil((counts?.words ?? 0) / 500))}</td></tr>
+                <tr><td>Words</td><td>{counts?.selWords ? `${counts.selWords.toLocaleString()} of ${(counts.words ?? 0).toLocaleString()}` : (counts?.words ?? 0).toLocaleString()}</td></tr>
+                <tr><td>Characters</td><td>{(counts?.chars ?? 0).toLocaleString()}</td></tr>
+                <tr><td>Characters excluding spaces</td><td>{(counts?.noSpaces ?? 0).toLocaleString()}</td></tr>
+              </tbody>
+            </table>
+            <label className="wc-check">
+              <input type="checkbox" checked={wcLive} onChange={(e) => setWcLive(e.target.checked)} />
+              Display word count while typing
+            </label>
+            <div className="wc-foot"><button className="gbtn-done" autoFocus onClick={() => setWcOpen(false)}>OK</button></div>
+          </div>
+        </div>
+      )}
+
       {helpOpen && (
         <div className="modal-backdrop" onMouseDown={() => setHelpOpen(false)}>
           <div className="modal" role="dialog" aria-label="Keyboard shortcuts" onMouseDown={(e) => e.stopPropagation()}>
             <div className="modal-head"><div className="modal-icon"><IconKeyboard /></div><div><h2>Keyboard shortcuts</h2></div></div>
             <div className="modal-body shortcuts">
               {[["Bold", "Ctrl+B"], ["Italic", "Ctrl+I"], ["Underline", "Ctrl+U"], ["Bulleted list", "Ctrl+Shift+8"], ["Numbered list", "Ctrl+Shift+7"],
-                ["Heading 1–3", "Ctrl+Alt+1–3"], ["Clear formatting", "Ctrl+\\"], ["Checklist", "Ctrl+Shift+9"], ["Add comment", "Ctrl+Alt+M"], ["Write with AI", "Ctrl+J"], ["Save now", "Ctrl+S"], ["Print", "Ctrl+P"], ["Hide menus", "Ctrl+Shift+F"], ["Undo / Redo", "Ctrl+Z / Ctrl+Y"]]
+                ["Heading 1–3", "Ctrl+Alt+1–3"], ["Clear formatting", "Ctrl+\\"], ["Checklist", "Ctrl+Shift+9"], ["Add comment", "Ctrl+Alt+M"], ["Write with AI", "Ctrl+J"], ["Save now", "Ctrl+S"], ["Print", "Ctrl+P"], ["Word count", "Ctrl+Shift+C"], ["Hide menus", "Ctrl+Shift+F"], ["Undo / Redo", "Ctrl+Z / Ctrl+Y"]]
                 .map(([a, k]) => <div key={a}><span>{a}</span><kbd>{k}</kbd></div>)}
             </div>
             <div className="modal-foot"><span className="muted">Mac: use ⌘ instead of Ctrl</span><button className="btn" onClick={() => setHelpOpen(false)}>Close</button></div>

@@ -45,7 +45,7 @@ A lightweight collaborative document editor: create and format documents, import
 - **Document outline:** a left sidebar (View → Show outline, or the outline button) lists the H1–H3 headings, indented by level. Click one to jump to it; the heading you're in is highlighted. Google Docs' multiple *tabs* per document are not implemented.
 - **Template gallery:** start from Blank or one of 7 templates (meeting notes, project proposal, product brief, status report, resume, letter, retrospective). Each card shows a live mini preview, and the result is a normal editable document.
 - **Docs-style editor:**
-  - A letter-size page, a working menu bar (File, View, Edit, Insert, Format, AI, Help) and a text-style dropdown.
+  - A letter-size page, a working menu bar (File, View, Edit, Insert, Format, Tools, AI, Help) and a text-style dropdown.
   - An Editing/Viewing indicator, a save status, and a keyboard-shortcut sheet.
 - **Stretch:** export any document to Markdown.
 
