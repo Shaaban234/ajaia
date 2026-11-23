@@ -24,7 +24,7 @@
 - **Verification:**
   - Unit tests cover output cleanup, sanitizing, title extraction, the model fallback (with a mocked fetch) and the "not configured" path.
   - The full UI flow was tested in a browser against a local mock of the OpenAI-compatible API, because the sandbox couldn't reach OpenRouter.
-  - [Add: you tested it against real Grok on the deployed URL.]
+  - [Add: you tested it on the deployed URL with a real OpenRouter key. The original default, Grok 4.1 Fast (free), turned out to be deprecated; the fallback caught it, and the default was switched to `openrouter/free`.]
 
 ## How correctness and quality were verified
 - `npm test`: 13 tests cover owner/editor/viewer/no-access rules, sanitizing (script, `onclick` and `javascript:` stripped), .md/.txt conversion, unsupported types, title validation, share upsert/revoke, persistence across a fresh store instance, and concurrent writes.

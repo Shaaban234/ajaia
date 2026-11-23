@@ -29,7 +29,7 @@ describe("AI helpers", () => {
 
   it("falls back to the next model when the first one fails", async () => {
     vi.stubEnv("AI_API_KEY", "test-key");
-    vi.stubEnv("AI_MODEL", "x-ai/grok-4.1-fast:free");
+    vi.stubEnv("AI_MODEL", "x-ai/grok-4.3");
     const calls: string[] = [];
     const fake = (async (_url: string, init: RequestInit) => {
       const model = JSON.parse(String(init.body)).model;
@@ -38,8 +38,8 @@ describe("AI helpers", () => {
       return new Response(JSON.stringify({ choices: [{ message: { content: "# Ok" } }] }), { status: 200 });
     }) as unknown as typeof fetch;
     const out = await generate(buildMessages("draft", { prompt: "x" }), { fetchImpl: fake });
-    expect(calls).toEqual(["x-ai/grok-4.1-fast:free", "openrouter/free"]);
-    expect(out).toEqual({ markdown: "# Ok", model: "openrouter/free", skipped: ["x-ai/grok-4.1-fast:free: 404 No endpoints"] });
+    expect(calls).toEqual(["x-ai/grok-4.3", "openrouter/free"]);
+    expect(out).toEqual({ markdown: "# Ok", model: "openrouter/free", skipped: ["x-ai/grok-4.3: 404 No endpoints"] });
   });
 
   it("reports a clear error when AI is not configured", async () => {

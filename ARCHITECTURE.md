@@ -36,7 +36,7 @@ Ownership is a column rather than a share row, so a document can never lose its 
 ## AI writing assistant
 - **Human in the loop:** the model never writes to the document directly. `/api/ai` returns a preview, and the user chooses Insert, Replace, Retry or Discard. This keeps judgment with the author and makes bad generations cheap to reject.
 - **Same safety pipeline:** the model is asked for Markdown only, which then goes through `cleanMarkdown` (strips code fences and "Sure! Here is…" preambles), then `marked`, then the sanitizer allow-list. AI output can't add anything the editor couldn't produce.
-- **Provider-agnostic:** it uses an OpenAI-compatible `/chat/completions` endpoint, defaulting to OpenRouter's free Grok. Free model IDs get retired, so it falls back to `openrouter/free`, and the model name is returned to the UI for transparency.
+- **Provider-agnostic:** it uses an OpenAI-compatible `/chat/completions` endpoint, defaulting to OpenRouter's free router (`openrouter/free`). Free model IDs get retired (Grok 4.1 Fast's free tier was, during this build), so the model is configurable, a failed or cut-off answer is retried once, and the model name is returned to the UI for transparency.
 - **Guardrails:** requires sign-in, validates input lengths, applies a per-user rate limit (12 requests/minute per instance) and a 45 s timeout, and gives clear errors for 429/5xx responses. Nothing breaks when no key is configured.
 
 ## Comments

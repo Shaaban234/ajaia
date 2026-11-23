@@ -30,7 +30,7 @@
 - **General access:** "Anyone with the link" (viewer or editor) plus Copy link.
 - **Document outline:** clickable headings sidebar that highlights the current section.
 - **Template gallery:** 7 starter templates with live previews.
-- **Write with AI:** create a document from a prompt; draft, continue, improve, shorten, expand, fix grammar or change tone of a selection, always with a preview before applying (free Grok via OpenRouter).
+- **Write with AI:** create a document from a prompt; draft, continue, improve, shorten, expand, fix grammar or change tone of a selection, always with a preview before applying (free models via OpenRouter; Grok can be pinned with `AI_MODEL`).
 
 **Incomplete / intentionally cut:**
 - Suggestion mode.

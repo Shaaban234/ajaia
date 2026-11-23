@@ -28,7 +28,7 @@ A lightweight collaborative document editor: create and format documents, import
   - **Create with AI** on the dashboard drafts a whole new document from a prompt.
   - In the editor, press **Ctrl+J**, or use the ✦ button or the AI menu, to draft at the cursor or continue writing. With text selected, you can improve it, fix grammar, make it shorter or longer, or rewrite it in a professional tone.
   - The AI always shows a **preview** first. You choose Insert, Replace, Retry or Discard, so nothing changes in the document without your click.
-  - It uses any OpenAI-compatible API, by default **OpenRouter's free Grok model** (`x-ai/grok-4.1-fast:free`). If that model is unavailable, it falls back to `openrouter/free`.
+  - It uses any OpenAI-compatible API, by default **OpenRouter's free-model router** (`openrouter/free`), which needs only a free OpenRouter key. OpenRouter retired Grok's free tier, so to use Grok set `AI_MODEL=x-ai/grok-4.3` (paid). A cut-off or failed answer is retried once through the free router.
   - AI output goes through the same Markdown → HTML sanitizer as file import.
 - **Comments (stretch):**
   - Select text and click **Add comment** (Ctrl+Alt+M). The text gets a yellow highlight, and the thread opens in a side panel.
@@ -68,7 +68,7 @@ No database is needed locally. To run against Postgres instead, set `DATABASE_UR
 | `SESSION_SECRET` | HMAC key for the session cookie. Set a long random value in production. |
 | `DATA_FILE` | Optional path for the JSON store. |
 | `AI_API_KEY` (or `OPENROUTER_API_KEY`) | Enables the AI features. Get a free key at openrouter.ai/keys. Without it, the app works and AI buttons explain that AI is not configured. |
-| `AI_MODEL` | Optional. Defaults to `x-ai/grok-4.1-fast:free`. |
+| `AI_MODEL` | Optional. Defaults to `openrouter/free`. Any OpenRouter model id works, e.g. `x-ai/grok-4.3` (paid). |
 | `AI_BASE_URL` | Optional. Any OpenAI-compatible endpoint; defaults to `https://openrouter.ai/api/v1`. |
 
 ## Deploy (Vercel + Neon, both free)

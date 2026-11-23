@@ -2,7 +2,8 @@ import { markdownToHtml, sanitizeDocumentHtml } from "./content";
 
 /**
  * "Write with AI". Talks to any OpenAI-compatible chat endpoint; defaults to
- * OpenRouter's free Grok model. The model only ever produces Markdown, which we
+ * OpenRouter's free-model router (Grok's free tier was retired in 2026; set
+ * AI_MODEL to any OpenRouter model id, e.g. x-ai/grok-4.3, to pin a paid model). The model only ever produces Markdown, which we
  * convert and sanitize with the same pipeline as file import, so AI output can
  * never inject anything the editor couldn't produce itself.
  */
@@ -15,9 +16,10 @@ export const MAX_TEXT = 12_000;
 export function aiConfig() {
   const apiKey = process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY || "";
   const baseUrl = (process.env.AI_BASE_URL || "https://openrouter.ai/api/v1").replace(/\/$/, "");
-  const primary = process.env.AI_MODEL || "x-ai/grok-4.1-fast:free";
-  // Free model IDs come and go; fall back to OpenRouter's free-model router.
-  const models = [...new Set([primary, ...(baseUrl.includes("openrouter.ai") ? ["openrouter/free"] : [])])];
+  const primary = process.env.AI_MODEL || "openrouter/free";
+  // Free models come and go; on OpenRouter, retry once through the free router
+  // (it picks a model at random, so a second attempt usually lands elsewhere).
+  const models = [primary, ...(baseUrl.includes("openrouter.ai") ? ["openrouter/free"] : [])];
   return { enabled: Boolean(apiKey), apiKey, baseUrl, models };
 }
 
@@ -91,12 +93,15 @@ export async function generate(
           "HTTP-Referer": process.env.APP_URL || "https://ajaia-docs.vercel.app",
           "X-Title": "Ajaia Docs",
         },
-        body: JSON.stringify({ model, messages, temperature: 0.4, max_tokens: 1500 }),
+        body: JSON.stringify({ model, messages, temperature: 0.4, max_tokens: 4000 }),
         signal: opts.signal ?? AbortSignal.timeout(45_000),
       });
       const body = await res.json().catch(() => null);
       const content: unknown = body?.choices?.[0]?.message?.content;
-      if (res.ok && typeof content === "string" && content.trim()) return { markdown: content, model, skipped };
+      // A reasoning model can spend its token budget thinking and return a cut-off answer.
+      const cutOff = body?.choices?.[0]?.finish_reason === "length" && typeof content === "string" && content.length < 600;
+      if (res.ok && typeof content === "string" && content.trim() && !cutOff) return { markdown: content, model, skipped };
+      if (cutOff) { skipped.push(`${model}: answer was cut off`); continue; }
       lastError = res.status === 429 ? "The free AI model is rate-limited. Try again in a minute." : body?.error?.message || lastError;
       skipped.push(`${model}: ${res.status} ${String(body?.error?.message ?? "empty response").slice(0, 160)}`);
     } catch (err) {
