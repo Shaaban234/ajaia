@@ -377,7 +377,7 @@ button, input, select { font: inherit; color: inherit; }
 .ai-preview h1 { font-size: 22px; } .ai-preview h2 { font-size: 19px; } .ai-preview h3 { font-size: 16px; }
 .ai-preview p { margin: .4em 0; } .ai-preview ul, .ai-preview ol { padding-left: 1.4em; margin: .4em 0; }
 .ai-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.ai-textarea { height: auto; padding: 12px; resize: vertical; line-height: 1.5; }
+.ai-textarea { height: auto; padding: 12px; resize: vertical; line-height: 1.5; font: inherit; font-size: 14px; }
 @media (max-width: 640px) { .ai-dock { top: 124px; } }
 
 /* ------------------------------------------------------------------ */
