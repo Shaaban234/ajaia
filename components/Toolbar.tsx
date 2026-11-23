@@ -1,6 +1,7 @@
 "use client";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
+import { IconBold, IconItalic, IconList, IconListOrdered, IconQuote, IconRedo, IconUnderline, IconUndo } from "./Icons";
 
 export default function Toolbar({ editor }: { editor: Editor }) {
   const s = useEditorState({
@@ -14,33 +15,47 @@ export default function Toolbar({ editor }: { editor: Editor }) {
       h3: e.isActive("heading", { level: 3 }),
       bullet: e.isActive("bulletList"),
       ordered: e.isActive("orderedList"),
+      quote: e.isActive("blockquote"),
       canUndo: e.can().undo(),
       canRedo: e.can().redo(),
     }),
   });
 
-  const btn = (label: string, title: string, active: boolean, run: () => void, style?: React.CSSProperties) => (
-    <button type="button" title={title} aria-label={title} aria-pressed={active} className={active ? "active" : ""} onMouseDown={(e) => e.preventDefault()} onClick={run} style={style}>
-      {label}
+  const B = (tip: string, active: boolean, run: () => void, child: React.ReactNode, disabled = false) => (
+    <button
+      type="button"
+      className={`tb-btn ${active ? "active" : ""}`}
+      data-tip={tip}
+      aria-label={tip}
+      aria-pressed={active}
+      disabled={disabled}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={run}
+    >
+      {child}
     </button>
   );
+  const c = () => editor.chain().focus();
 
   return (
-    <div className="toolbar" role="toolbar" aria-label="Formatting">
-      {btn("B", "Bold (Ctrl+B)", s.bold, () => editor.chain().focus().toggleBold().run(), { fontWeight: 700 })}
-      {btn("I", "Italic (Ctrl+I)", s.italic, () => editor.chain().focus().toggleItalic().run(), { fontStyle: "italic" })}
-      {btn("U", "Underline (Ctrl+U)", s.underline, () => editor.chain().focus().toggleUnderline().run(), { textDecoration: "underline" })}
-      <span className="sep" />
-      {btn("H1", "Heading 1", s.h1, () => editor.chain().focus().toggleHeading({ level: 1 }).run())}
-      {btn("H2", "Heading 2", s.h2, () => editor.chain().focus().toggleHeading({ level: 2 }).run())}
-      {btn("H3", "Heading 3", s.h3, () => editor.chain().focus().toggleHeading({ level: 3 }).run())}
-      {btn("¶", "Normal text", !s.h1 && !s.h2 && !s.h3, () => editor.chain().focus().setParagraph().run())}
-      <span className="sep" />
-      {btn("• List", "Bulleted list", s.bullet, () => editor.chain().focus().toggleBulletList().run())}
-      {btn("1. List", "Numbered list", s.ordered, () => editor.chain().focus().toggleOrderedList().run())}
-      <span className="sep" />
-      <button type="button" title="Undo" disabled={!s.canUndo} onClick={() => editor.chain().focus().undo().run()}>↶</button>
-      <button type="button" title="Redo" disabled={!s.canRedo} onClick={() => editor.chain().focus().redo().run()}>↷</button>
+    <div className="toolbar-dock">
+      <div className="toolbar" role="toolbar" aria-label="Formatting">
+        {B("Undo · Ctrl+Z", false, () => c().undo().run(), <IconUndo />, !s.canUndo)}
+        {B("Redo · Ctrl+Shift+Z", false, () => c().redo().run(), <IconRedo />, !s.canRedo)}
+        <span className="tb-sep" />
+        {B("Normal text", !s.h1 && !s.h2 && !s.h3, () => c().setParagraph().run(), <span>Aa</span>)}
+        {B("Heading 1", s.h1, () => c().toggleHeading({ level: 1 }).run(), <span>H1</span>)}
+        {B("Heading 2", s.h2, () => c().toggleHeading({ level: 2 }).run(), <span>H2</span>)}
+        {B("Heading 3", s.h3, () => c().toggleHeading({ level: 3 }).run(), <span>H3</span>)}
+        <span className="tb-sep" />
+        {B("Bold · Ctrl+B", s.bold, () => c().toggleBold().run(), <IconBold />)}
+        {B("Italic · Ctrl+I", s.italic, () => c().toggleItalic().run(), <IconItalic />)}
+        {B("Underline · Ctrl+U", s.underline, () => c().toggleUnderline().run(), <IconUnderline />)}
+        <span className="tb-sep" />
+        {B("Bulleted list", s.bullet, () => c().toggleBulletList().run(), <IconList />)}
+        {B("Numbered list", s.ordered, () => c().toggleOrderedList().run(), <IconListOrdered />)}
+        {B("Quote", s.quote, () => c().toggleBlockquote().run(), <IconQuote />)}
+      </div>
     </div>
   );
 }

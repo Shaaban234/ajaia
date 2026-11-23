@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStore } from "@/lib/store";
 import { errorResponse, readJson, requireUser, toView } from "@/lib/api";
-import { validateTitle } from "@/lib/content";
+import { excerptOf, validateTitle } from "@/lib/content";
 import { HttpError } from "@/lib/api";
 
 export async function GET() {
@@ -9,7 +9,10 @@ export async function GET() {
     const user = await requireUser();
     const docs = await (await getStore()).listForUser(user.id);
     // List view does not need full content.
-    return NextResponse.json({ documents: docs.map((d) => ({ ...toView(d, user.id), content: undefined })) });
+    // List view sends a short plain-text excerpt for card previews instead of full content.
+    return NextResponse.json({
+      documents: docs.map((d) => ({ ...toView(d, user.id), content: undefined, excerpt: excerptOf(d.content) })),
+    });
   } catch (err) {
     return errorResponse(err);
   }

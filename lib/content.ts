@@ -70,3 +70,10 @@ export function validateTitle(raw: unknown): { ok: true; value: string } | { ok:
   if (value.length > MAX_TITLE) return { ok: false, error: `Title must be ${MAX_TITLE} characters or fewer.` };
   return { ok: true, value };
 }
+
+/** Plain-text preview of a document for dashboard cards. */
+export function excerptOf(html: string, max = 220): string {
+  const text = html.replace(/<\/(p|h[1-6]|li)>/g, " ").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
+  return text.length > max ? text.slice(0, max).trimEnd() + "…" : text;
+}
