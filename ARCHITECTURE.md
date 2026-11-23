@@ -16,10 +16,10 @@ The goal was a small slice that works end to end and is deployable, not broad Go
 
 ## Data model
 ```
-documents(id, title, content HTML, owner_id, created_at, updated_at)
+documents(id, title, content HTML, owner_id, link_access: restricted|viewer|editor, created_at, updated_at)
 document_shares(document_id, user_id, role: editor|viewer)   PK (document_id, user_id)
 ```
-Ownership is a column rather than a share row, so a document can never lose its owner. A re-share is an upsert, which changes the role instead of duplicating the row.
+Ownership is a column rather than a share row, so a document can never lose its owner. A re-share is an upsert, which changes the role instead of duplicating the row. `link_access` implements Docs-style general access. An explicit share always wins over link access, link access never grants owner rights, and link-only documents do not appear under *Shared with me* (the same as Google Docs).
 
 ## Key decisions and tradeoffs
 | Decision | Why | Cost |

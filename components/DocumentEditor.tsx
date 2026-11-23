@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { CharacterCount, Placeholder } from "@tiptap/extensions";
-import Toolbar from "./Toolbar";
+import { TextStyleKit } from "@tiptap/extension-text-style";
+import Highlight from "@tiptap/extension-highlight";
+import TextAlign from "@tiptap/extension-text-align";
+import Image from "@tiptap/extension-image";
+import { TaskItem, TaskList } from "@tiptap/extension-list";
+import Toolbar, { type Command } from "./Toolbar";
+import Ruler from "./Ruler";
 import ShareDialog from "./ShareDialog";
 import AiPanel from "./AiPanel";
 import Avatar from "./Avatar";
@@ -41,6 +47,10 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
   const [shareOpen, setShareOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [mode, setMode] = useState<"editing" | "viewing">("editing");
+  const [zoom, setZoom] = useState(100);
+  const [spellcheck, setSpellcheck] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<string | null>(null);
   const lastSaved = useRef<string>("");
@@ -76,7 +86,13 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ link: { openOnClick: false } }),
+      StarterKit.configure({ link: { openOnClick: false, autolink: true, defaultProtocol: "https" } }),
+      TextStyleKit.configure({ backgroundColor: false }),
+      Highlight.configure({ multicolor: true }),
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Image.configure({ inline: false }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder: "Type here, or press Ctrl+J to write with AI…" }),
       CharacterCount,
     ],
@@ -134,12 +150,25 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); flush(); }
       if (mod && e.key.toLowerCase() === "j" && editable.current) { e.preventDefault(); setAiOpen((o) => !o); }
+      if (mod && e.shiftKey && e.key.toLowerCase() === "f") { e.preventDefault(); setCollapsed((c) => !c); }
       if (mod && e.key === "\\" && editable.current) { e.preventDefault(); editor?.chain().focus().unsetAllMarks().clearNodes().run(); }
     };
     window.addEventListener("beforeunload", warn);
     window.addEventListener("keydown", key);
     return () => { window.removeEventListener("beforeunload", warn); window.removeEventListener("keydown", key); flush(); };
   }, [flush, editor]);
+
+  // Editing/Viewing mode (Docs-style): editors can switch to a read-only view of their own document.
+  useEffect(() => {
+    if (!editor || !doc) return;
+    editable.current = doc.role !== "viewer" && mode === "editing";
+    editor.setEditable(editable.current, false);
+    if (!editable.current) setAiOpen(false);
+  }, [mode, editor, doc]);
+
+  useEffect(() => {
+    editor?.view.dom.setAttribute("spellcheck", String(spellcheck));
+  }, [editor, spellcheck, doc]);
 
   async function rename() {
     if (!doc || !isOwner) return;
@@ -195,12 +224,22 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
   }
 
   // Collaborators other than the current user (your own avatar is shown separately).
+  const commands: Command[] = [
+    { label: "New document", run: newDoc },
+    { label: "Open all documents", run: () => router.push("/") },
+    { label: "Share", run: () => setShareOpen(true), disabled: !isOwner },
+    { label: "Rename document", run: () => titleRef.current?.select(), disabled: !isOwner },
+    { label: "Download as Markdown", run: () => { window.location.href = `/api/documents/${id}/export`; } },
+    { label: "Delete document", run: remove, disabled: !isOwner },
+    { label: "Keyboard shortcuts", run: () => setHelpOpen(true) },
+  ];
+
   const people = doc ? [doc.ownerId, ...doc.shares.map((s) => s.userId)].filter((p) => p !== user.id) : [];
   const ed = editor;
 
   return (
     <div className="docs-ui">
-      <header className="docs-header">
+      <header className={`docs-header ${collapsed ? "collapsed" : ""}`}>
         <Link href="/" className="docs-logo" title="All documents" aria-label="All documents"><IconFile /></Link>
         <div className="docs-titlebox">
           <div className="docs-titlerow">
@@ -234,6 +273,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
                 { label: "Share…", icon: <IconUsers />, onClick: () => setShareOpen(true), disabled: !isOwner },
                 { label: "Rename", onClick: () => titleRef.current?.select(), disabled: !isOwner },
                 { label: "Download as Markdown (.md)", icon: <IconDownload />, onClick: () => { window.location.href = `/api/documents/${id}/export`; } },
+                { label: "Print", shortcut: "Ctrl+P", onClick: () => window.print() },
                 "divider",
                 { label: "Delete document", icon: <IconTrash />, onClick: remove, disabled: !isOwner, danger: true },
               ]} />
@@ -283,7 +323,18 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
         </button>
       </header>
 
-      {doc && editor && <div className="docs-toolbar-wrap"><Toolbar editor={editor} canEdit={canEdit} onAi={() => setAiOpen((o) => !o)} aiOpen={aiOpen} /></div>}
+      {doc && editor && (
+        <div className={`docs-toolbar-wrap ${collapsed ? "collapsed" : ""}`}>
+          <Toolbar
+            editor={editor} canEdit={canEdit} mode={mode} onModeChange={setMode}
+            zoom={zoom} onZoom={setZoom} spellcheck={spellcheck} onSpellcheck={setSpellcheck}
+            onAi={() => setAiOpen((o) => !o)} aiOpen={aiOpen}
+            collapsed={collapsed} onToggleCollapse={() => setCollapsed((c) => !c)}
+            commands={commands}
+          />
+          <Ruler zoom={zoom} />
+        </div>
+      )}
 
       <main className="docs-canvas">
         {doc && !canEdit && (
@@ -292,11 +343,11 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
             <span><strong>View only.</strong> {NAMES[doc.ownerId] ?? "The owner"} shared this with you as a viewer. Ask them for edit access to make changes.</span>
           </div>
         )}
-        {aiOpen && editor && canEdit && (
+        {aiOpen && editor && canEdit && mode === "editing" && (
           <div className="ai-dock"><AiPanel editor={editor} enabled={!!aiEnabled} onClose={() => setAiOpen(false)} /></div>
         )}
         {!doc && <div className="docs-page loading-sheet" />}
-        <div className="docs-page" style={{ display: doc ? "block" : "none" }}>
+        <div className="docs-page" style={{ display: doc ? "block" : "none", zoom: zoom / 100 } as React.CSSProperties}>
           <EditorContent editor={editor} />
         </div>
         {doc && (
@@ -308,7 +359,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
         )}
       </main>
 
-      {doc && canEdit && !aiOpen && (
+      {doc && canEdit && mode === "editing" && !aiOpen && (
         <button className="ai-fab" onClick={() => setAiOpen(true)} title="Write with AI (Ctrl+J)" aria-label="Write with AI">
           <IconSparkles /><span>Write with AI</span>
         </button>
@@ -320,7 +371,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
             <div className="modal-head"><div className="modal-icon"><IconKeyboard /></div><div><h2>Keyboard shortcuts</h2></div></div>
             <div className="modal-body shortcuts">
               {[["Bold", "Ctrl+B"], ["Italic", "Ctrl+I"], ["Underline", "Ctrl+U"], ["Bulleted list", "Ctrl+Shift+8"], ["Numbered list", "Ctrl+Shift+7"],
-                ["Heading 1–3", "Ctrl+Alt+1–3"], ["Clear formatting", "Ctrl+\\"], ["Write with AI", "Ctrl+J"], ["Save now", "Ctrl+S"], ["Undo / Redo", "Ctrl+Z / Ctrl+Y"]]
+                ["Heading 1–3", "Ctrl+Alt+1–3"], ["Clear formatting", "Ctrl+\\"], ["Checklist", "Ctrl+Shift+9"], ["Write with AI", "Ctrl+J"], ["Save now", "Ctrl+S"], ["Print", "Ctrl+P"], ["Hide menus", "Ctrl+Shift+F"], ["Undo / Redo", "Ctrl+Z / Ctrl+Y"]]
                 .map(([a, k]) => <div key={a}><span>{a}</span><kbd>{k}</kbd></div>)}
             </div>
             <div className="modal-foot"><span className="muted">Mac: use ⌘ instead of Ctrl</span><button className="btn" onClick={() => setHelpOpen(false)}>Close</button></div>

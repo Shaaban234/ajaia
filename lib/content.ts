@@ -3,10 +3,36 @@ import { marked } from "marked";
 import mammoth from "mammoth";
 
 /** The HTML subset the editor can represent. Everything else is stripped. */
+const COLOR = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i;
 const ALLOWED: sanitizeHtml.IOptions = {
-  allowedTags: ["p", "br", "strong", "b", "em", "i", "u", "s", "h1", "h2", "h3", "ul", "ol", "li", "blockquote", "code", "pre", "a", "hr"],
-  allowedAttributes: { a: ["href", "target", "rel"] },
+  allowedTags: [
+    "p", "br", "strong", "b", "em", "i", "u", "s", "h1", "h2", "h3", "ul", "ol", "li", "blockquote", "code", "pre", "a", "hr",
+    "span", "mark", "img", "label", "input", "div",
+  ],
+  allowedAttributes: {
+    a: ["href", "target", "rel"],
+    img: ["src", "alt", "title"],
+    span: ["style"],
+    mark: ["style", "data-color"],
+    p: ["style"], h1: ["style"], h2: ["style"], h3: ["style"],
+    ul: ["data-type"],
+    li: ["data-type", "data-checked"],
+    input: ["type", "checked"],
+  },
   allowedSchemes: ["http", "https", "mailto"],
+  allowedSchemesByTag: { img: ["http", "https"] },
+  allowedStyles: {
+    "*": {
+      color: [COLOR],
+      "background-color": [COLOR],
+      "font-family": [/^[\w\s,'"-]{1,80}$/],
+      "font-size": [/^\d{1,3}(\.\d+)?(px|pt)$/],
+      "line-height": [/^\d(\.\d{1,2})?$/],
+      "text-align": [/^(left|right|center|justify)$/],
+    },
+  },
+  // Checklist items are the only inputs allowed.
+  exclusiveFilter: (frame) => frame.tag === "input" && frame.attribs.type !== "checkbox",
 };
 
 export function sanitizeDocumentHtml(html: string): string {

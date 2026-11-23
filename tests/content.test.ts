@@ -22,6 +22,15 @@ describe("file import", () => {
     expect(clean).toContain("<p>ok</p>");
   });
 
+  it("keeps safe inline styles but drops dangerous ones", () => {
+    const html = '<p style="text-align:center;position:fixed">x</p><span style="color:#d93025;background-image:url(http://evil)">y</span><img src="javascript:alert(1)"><img src="https://example.com/a.png" onerror="x()">';
+    const clean = sanitizeDocumentHtml(html);
+    expect(clean).toContain('style="text-align:center"');
+    expect(clean).toContain('style="color:#d93025"');
+    expect(clean).not.toMatch(/position|background-image|javascript:|onerror/);
+    expect(clean).toContain('<img src="https://example.com/a.png" />');
+  });
+
   it("rejects unsupported file types", async () => {
     expect(isSupported("report.pdf")).toBe(false);
     expect(isSupported("Report.DOCX")).toBe(true);

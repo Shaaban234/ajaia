@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStore } from "@/lib/store";
 import { errorResponse, HttpError, loadDoc, readJson, requireUser, toView } from "@/lib/api";
 import { canEdit, canManage } from "@/lib/access";
+import type { LinkAccess } from "@/lib/types";
 import { MAX_CONTENT_BYTES, sanitizeDocumentHtml, validateTitle } from "@/lib/content";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -20,7 +21,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     const user = await requireUser();
     const doc = await loadDoc((await params).id, user);
     const body = await readJson(req);
-    const patch: { title?: string; content?: string } = {};
+    const patch: { title?: string; content?: string; linkAccess?: LinkAccess } = {};
 
     if (body.title !== undefined) {
       if (!canManage(doc, user.id)) throw new HttpError(403, "Only the owner can rename this document.");
@@ -34,7 +35,12 @@ export async function PATCH(req: Request, { params }: Ctx) {
       if (Buffer.byteLength(body.content) > MAX_CONTENT_BYTES) throw new HttpError(413, "Document is too large (1 MB limit).");
       patch.content = sanitizeDocumentHtml(body.content);
     }
-    if (patch.title === undefined && patch.content === undefined) throw new HttpError(400, "Nothing to update.");
+    if (body.linkAccess !== undefined) {
+      if (!canManage(doc, user.id)) throw new HttpError(403, "Only the owner can change general access.");
+      if (!["restricted", "viewer", "editor"].includes(body.linkAccess as string)) throw new HttpError(400, "Invalid general access setting.");
+      patch.linkAccess = body.linkAccess as LinkAccess;
+    }
+    if (patch.title === undefined && patch.content === undefined && patch.linkAccess === undefined) throw new HttpError(400, "Nothing to update.");
 
     const updated = await (await getStore()).update(doc.id, patch);
     if (!updated) throw new HttpError(404, "Document not found.");

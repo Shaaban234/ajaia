@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type { DocumentRecord, Share, ShareRole } from "./types";
+import type { DocumentRecord, LinkAccess, Share, ShareRole } from "./types";
 
 /**
  * Storage abstraction. Two implementations:
@@ -13,7 +13,7 @@ export interface Store {
   listForUser(userId: string): Promise<DocumentRecord[]>;
   get(id: string): Promise<DocumentRecord | null>;
   create(input: { title: string; content: string; ownerId: string }): Promise<DocumentRecord>;
-  update(id: string, patch: { title?: string; content?: string }): Promise<DocumentRecord | null>;
+  update(id: string, patch: { title?: string; content?: string; linkAccess?: LinkAccess }): Promise<DocumentRecord | null>;
   remove(id: string): Promise<boolean>;
   upsertShare(id: string, userId: string, role: ShareRole): Promise<DocumentRecord | null>;
   removeShare(id: string, userId: string): Promise<DocumentRecord | null>;
@@ -83,12 +83,13 @@ export class JsonFileStore implements Store {
     });
   }
 
-  update(id: string, patch: { title?: string; content?: string }) {
+  update(id: string, patch: { title?: string; content?: string; linkAccess?: LinkAccess }) {
     return this.mutate((db) => {
       const doc = db.documents.find((d) => d.id === id);
       if (!doc) return null;
       if (patch.title !== undefined) doc.title = patch.title;
       if (patch.content !== undefined) doc.content = patch.content;
+      if (patch.linkAccess !== undefined) doc.linkAccess = patch.linkAccess;
       doc.updatedAt = now();
       return doc;
     });
@@ -149,6 +150,7 @@ export class PgStore implements Store {
            role TEXT NOT NULL CHECK (role IN ('editor','viewer')),
            PRIMARY KEY (document_id, user_id)
          );
+         ALTER TABLE documents ADD COLUMN IF NOT EXISTS link_access TEXT NOT NULL DEFAULT 'restricted';
          CREATE INDEX IF NOT EXISTS idx_documents_owner ON documents(owner_id);
          CREATE INDEX IF NOT EXISTS idx_shares_user ON document_shares(user_id);`
       )
@@ -174,6 +176,7 @@ export class PgStore implements Store {
       title: r.title as string,
       content: r.content as string,
       ownerId: r.owner_id as string,
+      linkAccess: ((r.link_access as string) || "restricted") as LinkAccess,
       shares: byDoc.get(r.id as string) ?? [],
       createdAt: new Date(r.created_at as string).toISOString(),
       updatedAt: new Date(r.updated_at as string).toISOString(),
@@ -207,15 +210,16 @@ export class PgStore implements Store {
     return (await this.hydrate(res.rows))[0];
   }
 
-  async update(id: string, patch: { title?: string; content?: string }) {
+  async update(id: string, patch: { title?: string; content?: string; linkAccess?: LinkAccess }) {
     await this.init();
     const res = await this.pool.query(
       `UPDATE documents SET
          title = COALESCE($2, title),
          content = COALESCE($3, content),
-         updated_at = now()
+         link_access = COALESCE($4, link_access),
+         updated_at = CASE WHEN $3::text IS NULL AND $2::text IS NULL THEN updated_at ELSE now() END
        WHERE id = $1 RETURNING *`,
-      [id, patch.title ?? null, patch.content ?? null]
+      [id, patch.title ?? null, patch.content ?? null, patch.linkAccess ?? null]
     );
     return (await this.hydrate(res.rows))[0] ?? null;
   }

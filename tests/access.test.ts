@@ -32,6 +32,16 @@ describe("access rules", () => {
     expect(canEdit(doc, "u_carol")).toBe(false);
   });
 
+  it("grants link access to any signed-in user only when enabled", () => {
+    expect(roleFor({ ...doc, linkAccess: "restricted" }, "u_mallory")).toBeNull();
+    expect(roleFor({ ...doc, linkAccess: "viewer" }, "u_mallory")).toBe("viewer");
+    expect(canEdit({ ...doc, linkAccess: "viewer" }, "u_mallory")).toBe(false);
+    expect(canEdit({ ...doc, linkAccess: "editor" }, "u_mallory")).toBe(true);
+    // Link access never grants management rights, and explicit shares win over link access.
+    expect(canManage({ ...doc, linkAccess: "editor" }, "u_mallory")).toBe(false);
+    expect(roleFor({ ...doc, linkAccess: "editor" }, "u_carol")).toBe("viewer");
+  });
+
   it("denies everyone else", () => {
     expect(roleFor(doc, "u_mallory")).toBeNull();
     expect(canView(doc, "u_mallory")).toBe(false);

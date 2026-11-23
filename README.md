@@ -14,9 +14,15 @@ A lightweight collaborative document editor: create and format documents, import
 ## What works
 
 - **Documents:** create, rename (owner only), delete (owner only), and edit in the browser. Changes autosave 800 ms after you stop typing, and the status reads *Unsaved / Saving… / All changes saved / Save failed (Retry)*. You get a warning if you leave with unsaved changes.
-- **Rich text:** bold, italic, underline, H1–H3, bulleted and numbered lists, undo/redo, plus keyboard shortcuts.
+- **Rich text:** a full Docs-style toolbar where every control works:
+  - Menus command search, undo/redo, print, spellcheck toggle, paint format, zoom.
+  - Text styles (Normal, H1–H3), font family, font size −/+, bold, italic, underline.
+  - Text colour, highlight, links, images (by URL).
+  - Alignment, line spacing, checklists, bulleted and numbered lists, indent/outdent, quote, clear formatting.
+  - An Editing/Viewing mode switch, a hide-menus button and a ruler.
+  - Plus keyboard shortcuts.
 - **File import:** upload **.txt, .md or .docx** (max 5 MB) to create a new editable document. Headings, bold/italic and lists are preserved. Other types are rejected with a clear message.
-- **Sharing:** the owner shares by email as *Can edit* or *Can view*, can change a role, and can remove access. The dashboard splits **My documents** from **Shared with me**, and the editor shows a role badge. Viewers get a read-only editor; the API enforces this too, not just the UI.
+- **Sharing:** a Google-style Share dialog. The owner adds people by email as *Editor* or *Viewer*, can change roles and remove access, and sets **General access** to *Restricted* or *Anyone with the link* (viewer or editor). **Copy link** puts the document URL on the clipboard. The dashboard splits **My documents** from **Shared with me**, and the editor shows a role badge. Viewers get a read-only editor; the API enforces this too, not just the UI.
 - **Persistence:** Postgres in production, a JSON file locally. Content is stored as sanitized HTML, so formatting survives a reload.
 - **Write with AI** (AI-native feature):
   - **Create with AI** on the dashboard drafts a whole new document from a prompt.

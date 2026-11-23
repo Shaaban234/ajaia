@@ -4,7 +4,10 @@ import type { DocumentRecord, Role } from "./types";
 export function roleFor(doc: DocumentRecord, userId: string): Role | null {
   if (doc.ownerId === userId) return "owner";
   const share = doc.shares.find((s) => s.userId === userId);
-  return share ? share.role : null;
+  if (share) return share.role;
+  // "Anyone with the link" applies to any signed-in user who opens the document URL.
+  const link = doc.linkAccess ?? "restricted";
+  return link === "restricted" ? null : link;
 }
 
 export function canView(doc: DocumentRecord, userId: string): boolean {

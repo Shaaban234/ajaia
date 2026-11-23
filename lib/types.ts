@@ -7,6 +7,9 @@ export interface User {
   email: string;
 }
 
+/** General access: who else can open the document with its link. */
+export type LinkAccess = "restricted" | "viewer" | "editor";
+
 export interface Share {
   userId: string;
   role: ShareRole;
@@ -19,6 +22,8 @@ export interface DocumentRecord {
   content: string;
   ownerId: string;
   shares: Share[];
+  /** Defaults to "restricted" (only the owner and people explicitly shared with). */
+  linkAccess?: LinkAccess;
   createdAt: string;
   updatedAt: string;
 }
