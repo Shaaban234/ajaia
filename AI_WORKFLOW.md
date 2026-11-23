@@ -3,7 +3,7 @@
 > **DRAFT — Shaaban: edit this into your own words before submitting.** Everything below is accurate about what the AI did. Fill in the bracketed parts with what *you* actually checked and changed.
 
 ## Tools used
-- **Claude (Anthropic), as an agentic coding assistant**, with shell and browser access in a sandbox. I gave it the brief and directed the scope. It wrote most of the code, the tests and the first drafts of these docs.
+- **Claude (Anthropic)** as an AI coding assistant. I defined the scope and priorities from the brief, then used it to generate most of the implementation, the tests and first drafts of the docs, which I reviewed and verified.
 - [Add any other tools you used, e.g. Cursor or Copilot, while reviewing or tweaking.]
 
 ## Where AI materially sped things up
