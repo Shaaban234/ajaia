@@ -2,7 +2,7 @@
 
 A lightweight collaborative document editor: create and format documents, import files, and share them with other users as **viewer** or **editor**.
 
-**Live demo:** _<add Vercel URL>_
+**Live demo:** https://ajaia-eta.vercel.app — sign in as `alice@ajaia.test`, `bob@ajaia.test` or `carol@ajaia.test` (password `demo1234`)
 **Demo accounts** (password for all: `demo1234`). The login page also has one-click buttons:
 
 | User | Email |

@@ -2,7 +2,7 @@
 
 | Item | Location |
 |---|---|
-| Live app | _<Vercel URL>_ |
+| Live app | https://ajaia-eta.vercel.app (demo users: alice / bob / carol `@ajaia.test`, password `demo1234`) |
 | Source code | this folder (`app/`, `components/`, `lib/`, `tests/`) |
 | Setup & run instructions | `README.md` |
 | Architecture note | `ARCHITECTURE.md` |
