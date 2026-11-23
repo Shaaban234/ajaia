@@ -198,6 +198,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
                 title={isOwner ? "Click to rename" : "Only the owner can rename"}
                 aria-label="Document title"
                 maxLength={120}
+                size={Math.min(Math.max(title.length, 8), 40)}
                 onChange={(e) => setTitle(e.target.value)}
                 onBlur={rename}
                 onKeyDown={(e) => {

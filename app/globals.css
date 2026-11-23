@@ -129,7 +129,7 @@ button, input, select { font: inherit; color: inherit; }
 .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 600; flex: none; box-shadow: 0 0 0 2px var(--surface); }
 .avatar-lg { width: 40px; height: 40px; font-size: 14px; }
 .avatar-stack { display: flex; }
-.avatar-stack .avatar { margin-left: -8px; transition: transform .2s var(--ease); }
+.avatar-stack .avatar { margin-left: -6px; transition: transform .2s var(--ease); }
 .avatar-stack .avatar:first-child { margin-left: 0; }
 .avatar-stack:hover .avatar { transform: translateX(3px); }
 .avatar-stack:hover .avatar:first-child { transform: none; }
@@ -202,7 +202,7 @@ button, input, select { font: inherit; color: inherit; }
 /* Editor                                                              */
 /* ------------------------------------------------------------------ */
 .editor-top .title-wrap { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.title-input { font-size: 16px; font-weight: 600; letter-spacing: -.01em; border: 1px solid transparent; border-radius: 8px; padding: 6px 10px; min-width: 120px; max-width: 360px; background: transparent; transition: background .2s, border-color .2s, box-shadow .2s; }
+.title-input { font-size: 16px; font-weight: 600; letter-spacing: -.01em; border: 1px solid transparent; border-radius: 8px; padding: 6px 10px; max-width: 360px; width: auto; background: transparent; transition: background .2s, border-color .2s, box-shadow .2s; }
 .title-input:hover:not(:disabled) { background: rgba(23, 23, 28, .04); }
 .title-input:focus { outline: none; background: #fff; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(91, 76, 240, .14); }
 .title-input:disabled { color: var(--text); }
