@@ -39,7 +39,7 @@ describe("AI helpers", () => {
     }) as unknown as typeof fetch;
     const out = await generate(buildMessages("draft", { prompt: "x" }), { fetchImpl: fake });
     expect(calls).toEqual(["x-ai/grok-4.1-fast:free", "openrouter/free"]);
-    expect(out).toEqual({ markdown: "# Ok", model: "openrouter/free" });
+    expect(out).toEqual({ markdown: "# Ok", model: "openrouter/free", skipped: ["x-ai/grok-4.1-fast:free: 404 No endpoints"] });
   });
 
   it("reports a clear error when AI is not configured", async () => {

@@ -26,16 +26,17 @@ Rules:
 - Reply with the document content only, formatted as Markdown. No preamble, no "Here is", no closing remarks.
 - Use only: headings (#, ##, ###), paragraphs, **bold**, *italic*, bullet lists, numbered lists, > quotes.
 - Never wrap the answer in a code block.
-- Keep the author's language and meaning unless asked to change them.`;
+- Keep the author's language and meaning unless asked to change them.
+- When given text to rewrite, return exactly ONE rewritten version of that text. Never offer options, alternatives, versions, explanations or commentary, and never add headings the original did not have.`;
 
 const INSTRUCTIONS: Record<AiAction, string> = {
   draft: "Write new content for the document based on the request.",
   continue: "Continue the document naturally from where it ends. Return only the new continuation (1-3 paragraphs), not the existing text.",
-  improve: "Rewrite the text to be clearer and better structured, keeping the meaning.",
+  improve: "Rewrite the text to be clearer and better written, keeping the meaning and roughly the same length. Return only the rewritten text.",
   shorten: "Make the text noticeably shorter while keeping the key points.",
   expand: "Expand the text with more detail and useful specifics.",
   fix: "Fix spelling, grammar and punctuation only. Change nothing else.",
-  professional: "Rewrite the text in a confident, professional tone.",
+  professional: "Rewrite the text in a confident, professional tone. Return only the rewritten text.",
 };
 
 export function buildMessages(action: AiAction, input: { prompt?: string; text?: string; context?: string }) {
@@ -73,11 +74,12 @@ export class AiError extends Error {
 export async function generate(
   messages: ReturnType<typeof buildMessages>,
   opts: { fetchImpl?: typeof fetch; signal?: AbortSignal } = {}
-): Promise<{ markdown: string; model: string }> {
+): Promise<{ markdown: string; model: string; skipped: string[] }> {
   const cfg = aiConfig();
   if (!cfg.enabled) throw new AiError(503, "AI is not configured on this server (set AI_API_KEY).");
   const doFetch = opts.fetchImpl ?? fetch;
   let lastError = "The AI service is unavailable right now.";
+  const skipped: string[] = [];
 
   for (const model of cfg.models) {
     try {
@@ -89,15 +91,17 @@ export async function generate(
           "HTTP-Referer": process.env.APP_URL || "https://ajaia-docs.vercel.app",
           "X-Title": "Ajaia Docs",
         },
-        body: JSON.stringify({ model, messages, temperature: 0.6, max_tokens: 1500 }),
+        body: JSON.stringify({ model, messages, temperature: 0.4, max_tokens: 1500 }),
         signal: opts.signal ?? AbortSignal.timeout(45_000),
       });
       const body = await res.json().catch(() => null);
       const content: unknown = body?.choices?.[0]?.message?.content;
-      if (res.ok && typeof content === "string" && content.trim()) return { markdown: content, model };
+      if (res.ok && typeof content === "string" && content.trim()) return { markdown: content, model, skipped };
       lastError = res.status === 429 ? "The free AI model is rate-limited. Try again in a minute." : body?.error?.message || lastError;
+      skipped.push(`${model}: ${res.status} ${String(body?.error?.message ?? "empty response").slice(0, 160)}`);
     } catch (err) {
       lastError = (err as Error).name === "TimeoutError" ? "The AI took too long to respond." : lastError;
+      skipped.push(`${model}: ${(err as Error).name}`);
     }
   }
   throw new AiError(502, lastError);

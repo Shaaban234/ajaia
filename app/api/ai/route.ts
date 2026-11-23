@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { errorResponse, HttpError, readJson, requireUser } from "@/lib/api";
-import { AI_ACTIONS, AiError, aiConfig, aiMarkdownToHtml, buildMessages, generate, MAX_PROMPT, MAX_TEXT, rateLimited, type AiAction } from "@/lib/ai";
+import { AI_ACTIONS, AiError, aiConfig, aiMarkdownToHtml, cleanMarkdown, buildMessages, generate, MAX_PROMPT, MAX_TEXT, rateLimited, type AiAction } from "@/lib/ai";
 
 export const maxDuration = 60;
 
@@ -35,8 +35,8 @@ export async function POST(req: Request) {
     if (action === "continue" && !context) throw new HttpError(400, "There is nothing to continue yet.");
     if (rateLimited(user.id)) throw new HttpError(429, "Too many AI requests. Wait a moment and try again.");
 
-    const { markdown, model } = await generate(buildMessages(action, { prompt, text, context: context?.slice(-4000) }));
-    return NextResponse.json({ html: await aiMarkdownToHtml(markdown), markdown, model });
+    const { markdown, model, skipped } = await generate(buildMessages(action, { prompt, text, context: context?.slice(-4000) }));
+    return NextResponse.json({ html: await aiMarkdownToHtml(markdown), markdown: cleanMarkdown(markdown), model, skipped });
   } catch (err) {
     if (err instanceof AiError) return NextResponse.json({ error: err.message }, { status: err.status });
     return errorResponse(err);
