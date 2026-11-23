@@ -24,6 +24,8 @@ export interface DocumentRecord {
   shares: Share[];
   /** Defaults to "restricted" (only the owner and people explicitly shared with). */
   linkAccess?: LinkAccess;
+  /** Who made the last content change (for live updates and conflict messages). */
+  updatedBy?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,6 +41,21 @@ export interface Comment {
   quote: string;
   resolved: boolean;
   createdAt: string;
+}
+
+export interface Version {
+  id: string;
+  documentId: string;
+  title: string;
+  content: string;
+  authorId: string;
+  createdAt: string;
+}
+
+export interface Presence {
+  userId: string;
+  mode: "viewing" | "editing";
+  lastSeen: string;
 }
 
 /** What the API returns to a client: the record plus the caller's role. */

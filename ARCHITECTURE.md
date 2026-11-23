@@ -44,8 +44,17 @@ Ownership is a column rather than a share row, so a document can never lose its 
 - A thread is anchored by a `comment` mark (`<span data-comment-id>`) in the document HTML, so the highlight moves with edits like any other formatting. The comment text lives in its own table.
 - Starting a thread needs edit rights, because it adds the anchor to the content. Replying only needs view access. Resolving needs edit rights. Deleting is limited to the author or the owner. Deleting a document cascades to its comments.
 
+## Live collaboration (presence + conflict safety)
+- **Why polling, not websockets:** Vercel functions are stateless and short-lived, so a websocket server would need another always-on service. A 5 s heartbeat (`POST /presence`) records `document_presence(user, mode, last_seen)` and returns who has been active in the last 20 s, plus the document's latest `updated_at` / `updated_by`. This gives presence and near-real-time updates with no extra infrastructure. Tradeoff: up to 5 s latency, and it's not character-level co-editing.
+- **Optimistic concurrency:** every save sends `baseUpdatedAt`. If someone else saved after that point, the API returns **409** with their version, and the client asks the user to choose. Idle clients pull remote changes automatically.
+- **Next step for true co-editing:** Yjs CRDT over a websocket provider (e.g. Hocuspocus) with TipTap's Collaboration extension.
+
+## Version history
+- `document_versions(id, document_id, title, content, author_id, created_at)` stores checkpoints of **previous** states. Before a save replaces content, the old content is captured if a different person last edited it or the last checkpoint is more than 5 minutes old (one version per editing session, like Docs). The newest 50 are kept.
+- Restoring a version checkpoints the current state first, so a restore can be undone. Anyone with access can view history; only editors can restore.
+
 ## Intentionally deprioritized
-- **Real-time co-editing** (CRDT/Yjs + websockets). This is the biggest gap and the right next step, but it would have consumed most of the timebox and needs a stateful server.
+- **Character-level real-time co-editing** (CRDT/Yjs + websockets). Presence, live refresh and conflict detection are implemented with polling; true simultaneous typing in the same paragraph needs a stateful websocket service.
 - Suggestion mode and version history. Comments are implemented; real-time presence is not.
 - Real authentication and invites to people outside the user list.
 - Images, tables, attachments and non-text formats in import.

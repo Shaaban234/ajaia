@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type { Comment, DocumentRecord, LinkAccess, Share, ShareRole } from "./types";
+import type { Comment, DocumentRecord, LinkAccess, Presence, Share, ShareRole, Version } from "./types";
 
 /**
  * Storage abstraction. Two implementations:
@@ -13,7 +13,7 @@ export interface Store {
   listForUser(userId: string): Promise<DocumentRecord[]>;
   get(id: string): Promise<DocumentRecord | null>;
   create(input: { title: string; content: string; ownerId: string }): Promise<DocumentRecord>;
-  update(id: string, patch: { title?: string; content?: string; linkAccess?: LinkAccess }): Promise<DocumentRecord | null>;
+  update(id: string, patch: { title?: string; content?: string; linkAccess?: LinkAccess; updatedBy?: string }): Promise<DocumentRecord | null>;
   remove(id: string): Promise<boolean>;
   upsertShare(id: string, userId: string, role: ShareRole): Promise<DocumentRecord | null>;
   removeShare(id: string, userId: string): Promise<DocumentRecord | null>;
@@ -23,6 +23,15 @@ export interface Store {
   setResolved(id: string, resolved: boolean): Promise<Comment | null>;
   /** Deleting a thread root deletes its replies. */
   deleteComment(id: string): Promise<boolean>;
+  /** Newest first, without content. */
+  listVersions(documentId: string): Promise<Omit<Version, "content">[]>;
+  getVersion(id: string): Promise<Version | null>;
+  addVersion(input: { documentId: string; title: string; content: string; authorId: string; createdAt?: string }): Promise<Version>;
+  /** Keep only the newest `keep` versions. */
+  pruneVersions(documentId: string, keep: number): Promise<void>;
+  touchPresence(documentId: string, userId: string, mode: Presence["mode"]): Promise<void>;
+  /** Users seen within the last `withinMs`. */
+  listPresence(documentId: string, withinMs: number): Promise<Presence[]>;
 }
 
 function now() {
@@ -35,6 +44,8 @@ function now() {
 interface JsonDb {
   documents: DocumentRecord[];
   comments?: Comment[];
+  versions?: Version[];
+  presence?: (Presence & { documentId: string })[];
 }
 
 export class JsonFileStore implements Store {
@@ -90,12 +101,12 @@ export class JsonFileStore implements Store {
     });
   }
 
-  update(id: string, patch: { title?: string; content?: string; linkAccess?: LinkAccess }) {
+  update(id: string, patch: { title?: string; content?: string; linkAccess?: LinkAccess; updatedBy?: string }) {
     return this.mutate((db) => {
       const doc = db.documents.find((d) => d.id === id);
       if (!doc) return null;
       if (patch.title !== undefined) doc.title = patch.title;
-      if (patch.content !== undefined) doc.content = patch.content;
+      if (patch.content !== undefined) { doc.content = patch.content; if (patch.updatedBy) doc.updatedBy = patch.updatedBy; }
       if (patch.linkAccess !== undefined) doc.linkAccess = patch.linkAccess;
       doc.updatedAt = now();
       return doc;
@@ -107,6 +118,7 @@ export class JsonFileStore implements Store {
       const before = db.documents.length;
       db.documents = db.documents.filter((d) => d.id !== id);
       db.comments = (db.comments ?? []).filter((c) => c.documentId !== id);
+      db.versions = (db.versions ?? []).filter((v) => v.documentId !== id);
       return db.documents.length < before;
     });
   }
@@ -129,6 +141,49 @@ export class JsonFileStore implements Store {
       doc.shares = doc.shares.filter((s) => s.userId !== userId);
       return doc;
     });
+  }
+
+  async listVersions(documentId: string) {
+    const db = await this.read();
+    return (db.versions ?? []).filter((v) => v.documentId === documentId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map(({ content: _c, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
+  }
+
+  async getVersion(id: string) {
+    const db = await this.read();
+    return (db.versions ?? []).find((v) => v.id === id) ?? null;
+  }
+
+  addVersion(input: { documentId: string; title: string; content: string; authorId: string; createdAt?: string }) {
+    return this.mutate((db) => {
+      const v: Version = { id: randomUUID(), ...input, createdAt: input.createdAt ?? now() };
+      (db.versions ??= []).push(v);
+      return v;
+    });
+  }
+
+  pruneVersions(documentId: string, keep: number) {
+    return this.mutate((db) => {
+      const mine = (db.versions ?? []).filter((v) => v.documentId === documentId).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      const drop = new Set(mine.slice(keep).map((v) => v.id));
+      db.versions = (db.versions ?? []).filter((v) => !drop.has(v.id));
+    });
+  }
+
+  touchPresence(documentId: string, userId: string, mode: Presence["mode"]) {
+    return this.mutate((db) => {
+      const list = (db.presence ??= []);
+      const p = list.find((x) => x.documentId === documentId && x.userId === userId);
+      if (p) { p.mode = mode; p.lastSeen = now(); } else list.push({ documentId, userId, mode, lastSeen: now() });
+    });
+  }
+
+  async listPresence(documentId: string, withinMs: number) {
+    const db = await this.read();
+    const cutoff = Date.now() - withinMs;
+    return (db.presence ?? []).filter((p) => p.documentId === documentId && new Date(p.lastSeen).getTime() >= cutoff)
+      .map(({ userId, mode, lastSeen }) => ({ userId, mode, lastSeen }));
   }
 
   async listComments(documentId: string) {
@@ -205,6 +260,23 @@ export class PgStore implements Store {
            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
          );
          CREATE INDEX IF NOT EXISTS idx_comments_doc ON document_comments(document_id);
+         ALTER TABLE documents ADD COLUMN IF NOT EXISTS updated_by TEXT;
+         CREATE TABLE IF NOT EXISTS document_versions (
+           id TEXT PRIMARY KEY,
+           document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+           title TEXT NOT NULL,
+           content TEXT NOT NULL,
+           author_id TEXT NOT NULL,
+           created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+         );
+         CREATE INDEX IF NOT EXISTS idx_versions_doc ON document_versions(document_id, created_at DESC);
+         CREATE TABLE IF NOT EXISTS document_presence (
+           document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+           user_id TEXT NOT NULL,
+           mode TEXT NOT NULL,
+           last_seen TIMESTAMPTZ NOT NULL DEFAULT now(),
+           PRIMARY KEY (document_id, user_id)
+         );
          CREATE INDEX IF NOT EXISTS idx_documents_owner ON documents(owner_id);
          CREATE INDEX IF NOT EXISTS idx_shares_user ON document_shares(user_id);`
       )
@@ -231,6 +303,7 @@ export class PgStore implements Store {
       content: r.content as string,
       ownerId: r.owner_id as string,
       linkAccess: ((r.link_access as string) || "restricted") as LinkAccess,
+      updatedBy: (r.updated_by as string) ?? undefined,
       shares: byDoc.get(r.id as string) ?? [],
       createdAt: new Date(r.created_at as string).toISOString(),
       updatedAt: new Date(r.updated_at as string).toISOString(),
@@ -264,16 +337,17 @@ export class PgStore implements Store {
     return (await this.hydrate(res.rows))[0];
   }
 
-  async update(id: string, patch: { title?: string; content?: string; linkAccess?: LinkAccess }) {
+  async update(id: string, patch: { title?: string; content?: string; linkAccess?: LinkAccess; updatedBy?: string }) {
     await this.init();
     const res = await this.pool.query(
       `UPDATE documents SET
          title = COALESCE($2, title),
          content = COALESCE($3, content),
          link_access = COALESCE($4, link_access),
+         updated_by = CASE WHEN $3::text IS NULL THEN updated_by ELSE COALESCE($5, updated_by) END,
          updated_at = CASE WHEN $3::text IS NULL AND $2::text IS NULL THEN updated_at ELSE now() END
        WHERE id = $1 RETURNING *`,
-      [id, patch.title ?? null, patch.content ?? null, patch.linkAccess ?? null]
+      [id, patch.title ?? null, patch.content ?? null, patch.linkAccess ?? null, patch.updatedBy ?? null]
     );
     return (await this.hydrate(res.rows))[0] ?? null;
   }
@@ -299,6 +373,56 @@ export class PgStore implements Store {
     await this.pool.query("DELETE FROM document_shares WHERE document_id = $1 AND user_id = $2", [id, userId]);
     return this.get(id);
   }
+  async listVersions(documentId: string) {
+    await this.init();
+    const res = await this.pool.query("SELECT id, document_id, title, author_id, created_at FROM document_versions WHERE document_id = $1 ORDER BY created_at DESC", [documentId]);
+    return res.rows.map((r) => ({ id: r.id, documentId: r.document_id, title: r.title, authorId: r.author_id, createdAt: new Date(r.created_at).toISOString() }));
+  }
+
+  async getVersion(id: string) {
+    await this.init();
+    const res = await this.pool.query("SELECT * FROM document_versions WHERE id = $1", [id]);
+    const r = res.rows[0];
+    return r ? { id: r.id, documentId: r.document_id, title: r.title, content: r.content, authorId: r.author_id, createdAt: new Date(r.created_at).toISOString() } : null;
+  }
+
+  async addVersion(input: { documentId: string; title: string; content: string; authorId: string; createdAt?: string }) {
+    await this.init();
+    const res = await this.pool.query(
+      "INSERT INTO document_versions (id, document_id, title, content, author_id, created_at) VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, now())) RETURNING *",
+      [randomUUID(), input.documentId, input.title, input.content, input.authorId, input.createdAt ?? null]
+    );
+    const r = res.rows[0];
+    return { id: r.id, documentId: r.document_id, title: r.title, content: r.content, authorId: r.author_id, createdAt: new Date(r.created_at).toISOString() };
+  }
+
+  async pruneVersions(documentId: string, keep: number) {
+    await this.init();
+    await this.pool.query(
+      `DELETE FROM document_versions WHERE document_id = $1 AND id NOT IN
+         (SELECT id FROM document_versions WHERE document_id = $1 ORDER BY created_at DESC LIMIT $2)`,
+      [documentId, keep]
+    );
+  }
+
+  async touchPresence(documentId: string, userId: string, mode: Presence["mode"]) {
+    await this.init();
+    await this.pool.query(
+      `INSERT INTO document_presence (document_id, user_id, mode, last_seen) VALUES ($1, $2, $3, now())
+       ON CONFLICT (document_id, user_id) DO UPDATE SET mode = EXCLUDED.mode, last_seen = now()`,
+      [documentId, userId, mode]
+    );
+  }
+
+  async listPresence(documentId: string, withinMs: number) {
+    await this.init();
+    const res = await this.pool.query(
+      "SELECT user_id, mode, last_seen FROM document_presence WHERE document_id = $1 AND last_seen >= now() - ($2::text || ' milliseconds')::interval",
+      [documentId, String(withinMs)]
+    );
+    return res.rows.map((r) => ({ userId: r.user_id, mode: r.mode, lastSeen: new Date(r.last_seen).toISOString() }));
+  }
+
   private toComment(r: Record<string, unknown>): Comment {
     return {
       id: r.id as string, documentId: r.document_id as string, threadId: (r.thread_id as string) ?? null,

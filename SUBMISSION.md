@@ -23,6 +23,8 @@
 - API-enforced permissions.
 - Postgres persistence.
 - Markdown export (stretch).
+- **Live presence and conflict protection:** see who's viewing or editing now, idle editors receive changes automatically, and concurrent saves get a 409 with a Use theirs / Keep mine choice.
+- **Version history:** preview and restore, with undoable restores.
 - **Comments:** anchored threads with replies, resolve and delete, plus role-based permissions.
 - **Full Docs-style toolbar:** fonts, sizes, colours, highlight, links, images, alignment, line spacing, checklists, indent, paint format, zoom, print, spellcheck, menu search, and an Editing/Viewing mode.
 - **General access:** "Anyone with the link" (viewer or editor) plus Copy link.
@@ -31,7 +33,8 @@
 
 **Incomplete / intentionally cut:**
 - Real-time co-editing: concurrent edits are last-write-wins.
-- Version history and suggestion mode.
+- Suggestion mode.
+- Character-level simultaneous co-editing. Presence, live refresh and conflict protection are implemented with polling instead.
 - Real authentication (mocked with seeded users).
 
 **Next 2–4 hours:**

@@ -34,6 +34,14 @@ A lightweight collaborative document editor: create and format documents, import
   - Select text and click **Add comment** (Ctrl+Alt+M). The text gets a yellow highlight, and the thread opens in a side panel.
   - Anyone with access can reply. Editors and owners start and resolve threads (resolving removes the highlight).
   - You can delete your own comments, and the owner can delete any. Permissions are enforced by the API.
+- **Live collaboration:**
+  - Each open document checks in with the server every 5 s, and the header shows who is viewing or editing right now (green ring, "Carol is editing").
+  - If a collaborator saves while you're idle, your page updates automatically.
+  - If you were both editing, the server rejects the stale save (HTTP 409), and you choose between **Use their version** and **Keep mine**, so nobody overwrites anyone silently.
+- **Version history:**
+  - Open it with File → Version history, the clock icon or Ctrl+Alt+Shift+H.
+  - A checkpoint is saved whenever a different person starts editing, or every 5 minutes of continuous editing. The last 50 are kept.
+  - Preview any version, then **Restore** it. The state before a restore is kept, so a restore can be undone.
 - **Template gallery:** start from Blank or one of 7 templates (meeting notes, project proposal, product brief, status report, resume, letter, retrospective). Each card shows a live mini preview, and the result is a normal editable document.
 - **Docs-style editor:**
   - A letter-size page, a working menu bar (File, Edit, Insert, Format, AI, Help) and a text-style dropdown.

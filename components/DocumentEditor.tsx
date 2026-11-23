@@ -13,6 +13,7 @@ import { TaskItem, TaskList } from "@tiptap/extension-list";
 import Toolbar, { type Command } from "./Toolbar";
 import Ruler from "./Ruler";
 import CommentsPanel, { type PendingComment } from "./CommentsPanel";
+import VersionsPanel from "./VersionsPanel";
 import { CommentMark } from "@/lib/commentMark";
 import ShareDialog from "./ShareDialog";
 import AiPanel from "./AiPanel";
@@ -22,10 +23,10 @@ import { useToast } from "./Toasts";
 import { useAiEnabled } from "./useAiEnabled";
 import {
   IconAlert, IconCheck, IconDownload, IconEye, IconFile, IconKeyboard, IconLock, IconLogout,
-  IconPlus, IconRedo, IconSparkles, IconTrash, IconUndo, IconUsers, IconComment, IconCommentAdd,
+  IconPlus, IconRedo, IconSparkles, IconTrash, IconUndo, IconUsers, IconComment, IconCommentAdd, IconHistory,
 } from "./Icons";
 import { relativeTime } from "@/lib/ui";
-import type { DocumentView, User } from "@/lib/types";
+import type { DocumentView, Presence, User, Version } from "@/lib/types";
 
 type SaveState = "saved" | "dirty" | "saving" | "error";
 const AUTOSAVE_MS = 800;
@@ -57,6 +58,13 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
   const [pendingComment, setPendingComment] = useState<PendingComment | null>(null);
   const [activeComment, setActiveComment] = useState<string | null>(null);
   const [commentCount, setCommentCount] = useState(0);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [preview, setPreview] = useState<Version | null>(null);
+  const [historyKey, setHistoryKey] = useState(0);
+  const [presence, setPresence] = useState<Presence[]>([]);
+  const [conflict, setConflict] = useState<{ message: string; theirs: DocumentView } | null>(null);
+  /** updatedAt of the server version this editor is based on (for conflict detection). */
+  const base = useRef<string>("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<string | null>(null);
   const lastSaved = useRef<string>("");
@@ -76,12 +84,18 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
       const res = await fetch(`/api/documents/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: html }),
+        body: JSON.stringify({ content: html, baseUpdatedAt: base.current || undefined }),
       });
       const body = await res.json().catch(() => null);
+      if (res.status === 409 && body?.conflict) {
+        pending.current = html; // keep local work; the user decides in the conflict banner
+        setConflict({ message: body.error, theirs: body.document });
+        setSave("dirty");
+        return;
+      }
       if (!res.ok) throw new Error(body?.error);
       lastSaved.current = html;
-      if (body?.document) setDoc((d) => (d ? { ...d, updatedAt: body.document.updatedAt } : d));
+      if (body?.document) { base.current = body.document.updatedAt; setDoc((d) => (d ? { ...d, updatedAt: body.document.updatedAt, updatedBy: body.document.updatedBy } : d)); }
       // Only mark saved if nothing new was typed while the request was in flight.
       setSave(pending.current === null ? "saved" : "dirty");
     } catch {
@@ -118,7 +132,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
       pending.current = html;
       setSave("dirty");
       if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(flush, AUTOSAVE_MS);
+      if (!conflictRef.current) timer.current = setTimeout(flush, AUTOSAVE_MS);
     },
   });
 
@@ -139,6 +153,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
       const d: DocumentView = (await res.json()).document;
       setDoc(d);
       setTitle(d.title);
+      base.current = d.updatedAt;
       editor.commands.setContent(d.content, { emitUpdate: false });
       lastSaved.current = editor.getHTML(); // normalized form, so the first keystroke is the first real change
       editable.current = d.role !== "viewer";
@@ -157,6 +172,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); flush(); }
       if (mod && e.key.toLowerCase() === "j" && editable.current) { e.preventDefault(); setAiOpen((o) => !o); }
+      if (mod && e.altKey && e.shiftKey && e.key.toLowerCase() === "h") { e.preventDefault(); openHistoryRef.current(); }
       if (mod && e.altKey && e.key.toLowerCase() === "m") { e.preventDefault(); startCommentRef.current(); }
       if (mod && e.shiftKey && e.key.toLowerCase() === "f") { e.preventDefault(); setCollapsed((c) => !c); }
       if (mod && e.key === "\\" && editable.current) { e.preventDefault(); editor?.chain().focus().unsetAllMarks().clearNodes().run(); }
@@ -205,8 +221,102 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
     setPendingComment({ id: crypto.randomUUID(), from, to, quote });
     setCommentsOpen(true);
   }
+  const openHistoryRef = useRef(() => {});
   const startCommentRef = useRef(startComment);
   startCommentRef.current = startComment;
+
+  const conflictRef = useRef(conflict);
+  conflictRef.current = conflict;
+
+  /** Replace editor content with a server copy (remote changes, "use theirs", restores). */
+  const applyServerDoc = useCallback((d: DocumentView) => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    editor.commands.setContent(d.content, { emitUpdate: false });
+    const max = editor.state.doc.content.size;
+    try { editor.commands.setTextSelection({ from: Math.min(from, max), to: Math.min(to, max) }); } catch { /* selection may no longer exist */ }
+    lastSaved.current = editor.getHTML();
+    pending.current = null;
+    base.current = d.updatedAt;
+    setDoc((cur) => (cur ? { ...cur, content: d.content, title: d.title, updatedAt: d.updatedAt, updatedBy: d.updatedBy } : cur));
+    setTitle(d.title);
+    setSave("saved");
+  }, [editor]);
+
+  // Presence heartbeat + live sync (polling keeps it serverless-friendly; see ARCHITECTURE.md).
+  useEffect(() => {
+    if (!doc || !editor) return;
+    let stopped = false;
+    const beat = async () => {
+      if (document.hidden) return;
+      try {
+        const res = await fetch(`/api/documents/${id}/presence`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: editable.current ? "editing" : "viewing" }),
+        });
+        if (!res.ok || stopped) return;
+        const b = await res.json();
+        setPresence(b.presence ?? []);
+        const remoteNewer = b.updatedAt && base.current && new Date(b.updatedAt) > new Date(base.current) && b.updatedBy && b.updatedBy !== user.id;
+        if (remoteNewer && !conflictRef.current) {
+          const r = await fetch(`/api/documents/${id}`, { cache: "no-store" });
+          if (!r.ok || stopped) return;
+          const theirs: DocumentView = (await r.json()).document;
+          const who = NAMES[theirs.updatedBy ?? ""] ?? "A collaborator";
+          if (pending.current === null) {
+            applyServerDoc(theirs);
+            toast("success", `Updated with ${who.split(" ")[0]}'s latest changes`);
+          } else {
+            setConflict({ message: `${who} edited this document while you were editing.`, theirs });
+          }
+        }
+      } catch { /* offline: try again next beat */ }
+    };
+    beat();
+    const t = setInterval(beat, 5000);
+    return () => { stopped = true; clearInterval(t); };
+  }, [doc?.id, editor, id, user.id, applyServerDoc, toast]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function useTheirs() {
+    if (!conflict) return;
+    applyServerDoc(conflict.theirs);
+    setConflict(null);
+    toast("success", "Loaded the latest version");
+  }
+
+  async function keepMine() {
+    if (!conflict || !editor) return;
+    base.current = conflict.theirs.updatedAt; // acknowledge their version, then overwrite deliberately
+    pending.current = editor.getHTML();
+    setConflict(null);
+    await flush();
+  }
+
+  async function selectVersion(v: Omit<Version, "content"> | null) {
+    if (!v) return setPreview(null);
+    const r = await fetch(`/api/documents/${id}/versions/${v.id}`, { cache: "no-store" });
+    if (!r.ok) return toast("error", "Could not load that version.");
+    setPreview((await r.json()).version);
+  }
+
+  async function restoreVersion() {
+    if (!preview) return;
+    await flush();
+    const r = await fetch(`/api/documents/${id}/versions/${preview.id}`, { method: "POST" });
+    const b = await r.json();
+    if (!r.ok) return toast("error", b.error ?? "Restore failed.");
+    applyServerDoc(b.document);
+    setPreview(null);
+    setHistoryKey((k) => k + 1);
+    toast("success", "Version restored. The previous state was kept in history.");
+  }
+
+  function openHistory() {
+    setCommentsOpen(false);
+    setHistoryOpen(true);
+    setHistoryKey((k) => k + 1);
+  }
+  openHistoryRef.current = openHistory;
 
   async function rename() {
     if (!doc || !isOwner) return;
@@ -272,6 +382,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
     { label: "Keyboard shortcuts", run: () => setHelpOpen(true) },
     { label: "Add comment", hint: "Ctrl+Alt+M", run: startComment, disabled: !canEdit },
     { label: "Open comments", run: () => setCommentsOpen(true) },
+    { label: "Version history", hint: "Ctrl+Alt+Shift+H", run: openHistory },
   ];
 
   const people = doc ? [doc.ownerId, ...doc.shares.map((s) => s.userId)].filter((p) => p !== user.id) : [];
@@ -314,6 +425,7 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
                 { label: "Rename", onClick: () => titleRef.current?.select(), disabled: !isOwner },
                 { label: "Download as Markdown (.md)", icon: <IconDownload />, onClick: () => { window.location.href = `/api/documents/${id}/export`; } },
                 { label: "Print", shortcut: "Ctrl+P", onClick: () => window.print() },
+                { label: "Version history", icon: <IconHistory />, shortcut: "Ctrl+Alt+Shift+H", onClick: openHistory },
                 "divider",
                 { label: "Delete document", icon: <IconTrash />, onClick: remove, disabled: !isOwner, danger: true },
               ]} />
@@ -349,13 +461,34 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
           )}
         </div>
         <span className="spacer" />
-        {doc && people.length > 0 && (
-          <span className="avatar-stack hide-sm" title={`Also has access: ${people.map((p) => NAMES[p]).join(", ")}`}>
-            {people.slice(0, 4).map((p) => <Avatar key={p} name={NAMES[p] ?? "?"} id={p} />)}
-          </span>
+        {doc && (presence.length > 0 || people.length > 0) && (
+          <div className="presence hide-sm">
+            {presence.length > 0 && (
+              <span className="presence-label">
+                {presence.length === 1
+                  ? `${(NAMES[presence[0].userId] ?? "Someone").split(" ")[0]} is ${presence[0].mode}`
+                  : `${presence.length} others here`}
+              </span>
+            )}
+            <span className="avatar-stack">
+              {[...presence.map((p) => p.userId), ...people.filter((p) => !presence.some((x) => x.userId === p))].slice(0, 5).map((uid) => {
+                const live = presence.find((p) => p.userId === uid);
+                return (
+                  <span key={uid} className={`pres-av ${live ? "online" : "offline"}`} title={live ? `${NAMES[uid]} is ${live.mode} now` : `${NAMES[uid]} has access (not here now)`}>
+                    <Avatar name={NAMES[uid] ?? "?"} id={uid} />
+                  </span>
+                );
+              })}
+            </span>
+          </div>
         )}
         {doc && (
-          <button className={`icon-btn plain hdr-comments ${commentsOpen ? "on" : ""}`} onClick={() => setCommentsOpen((o) => !o)} title="Open comment history" aria-label="Comments">
+          <button className={`icon-btn plain hdr-comments ${historyOpen ? "on" : ""}`} onClick={() => (historyOpen ? (setHistoryOpen(false), setPreview(null)) : openHistory())} title="Version history" aria-label="Version history">
+            <IconHistory />
+          </button>
+        )}
+        {doc && (
+          <button className={`icon-btn plain hdr-comments ${commentsOpen ? "on" : ""}`} onClick={() => { setHistoryOpen(false); setPreview(null); setCommentsOpen((o) => !o); }} title="Open comment history" aria-label="Comments">
             <IconComment />{commentCount > 0 && <span className="hdr-badge">{commentCount}</span>}
           </button>
         )}
@@ -391,15 +524,42 @@ export default function DocumentEditor({ user, id }: { user: User; id: string })
             <span><strong>View only.</strong> {NAMES[doc.ownerId] ?? "The owner"} shared this with you as a viewer. Ask them for edit access to make changes.</span>
           </div>
         )}
+        {conflict && (
+          <div className="conflict-banner" role="alert">
+            <IconAlert />
+            <span><strong>{conflict.message}</strong> Your latest changes are not saved yet.</span>
+            <span className="spacer" />
+            <button className="btn btn-sm" onClick={useTheirs}>Use their version</button>
+            <button className="btn btn-sm btn-primary" onClick={keepMine}>Keep mine</button>
+          </div>
+        )}
+        {preview && (
+          <div className="version-banner">
+            <IconHistory />
+            <span>Viewing a version from <strong>{new Date(preview.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</strong> by {NAMES[preview.authorId] ?? preview.authorId}</span>
+            <span className="spacer" />
+            <button className="btn btn-sm" onClick={() => setPreview(null)}>Back to current</button>
+            {canEdit && <button className="btn btn-sm btn-primary" onClick={restoreVersion}>Restore this version</button>}
+          </div>
+        )}
         {aiOpen && editor && canEdit && mode === "editing" && (
           <div className="ai-dock"><AiPanel editor={editor} enabled={!!aiEnabled} onClose={() => setAiOpen(false)} /></div>
         )}
         {!doc && <div className="docs-page loading-sheet" />}
-        <div className={`page-row ${commentsOpen ? "with-comments" : ""}`}>
-          <div className="docs-page" style={{ display: doc ? "block" : "none", zoom: zoom / 100 } as React.CSSProperties}>
+        <div className={`page-row ${commentsOpen || historyOpen ? "with-comments" : ""}`}>
+          <div className="docs-page" style={{ display: doc && !preview ? "block" : "none", zoom: zoom / 100 } as React.CSSProperties}>
             <EditorContent editor={editor} />
           </div>
-          {doc && editor && commentsOpen && (
+          {preview && (
+            <div className="docs-page preview-page" style={{ zoom: zoom / 100 } as React.CSSProperties}>
+              <div className="ProseMirror" dangerouslySetInnerHTML={{ __html: preview.content }} />
+            </div>
+          )}
+          {doc && historyOpen && (
+            <VersionsPanel docId={doc.id} selectedId={preview?.id ?? null} onSelect={selectVersion} refreshKey={historyKey}
+              onClose={() => { setHistoryOpen(false); setPreview(null); }} />
+          )}
+          {doc && editor && commentsOpen && !historyOpen && (
             <CommentsPanel editor={editor} doc={doc} user={user} pending={pendingComment} onPendingDone={() => setPendingComment(null)}
               activeId={activeComment} onActivate={setActiveComment} onClose={() => { setCommentsOpen(false); setPendingComment(null); }} onCount={setCommentCount} />
           )}

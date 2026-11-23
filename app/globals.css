@@ -704,3 +704,34 @@ kbd { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 2px 7p
   .comments-panel { position: fixed; top: auto; bottom: 0; right: 0; left: auto; width: min(380px, 100vw); max-height: 70vh; z-index: 40; padding: 12px; background: #f9fbfd; border-radius: 16px 16px 0 0; box-shadow: 0 -8px 30px rgba(30, 40, 70, .2); }
 }
 @media print { .comments-panel { display: none !important; } .docs-page .ProseMirror .comment-mark { background: none; border: none; } }
+
+/* ------------------------------------------------------------------ */
+/* Presence, live conflicts, version history                           */
+/* ------------------------------------------------------------------ */
+@keyframes ring-pulse { 0% { box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(30, 142, 62, .9); } 70% { box-shadow: 0 0 0 2px #fff, 0 0 0 7px rgba(30, 142, 62, 0); } 100% { box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(30, 142, 62, .9); } }
+.presence { display: flex; align-items: center; gap: 10px; }
+.presence-label { font-size: 12.5px; color: #188038; font-weight: 500; white-space: nowrap; animation: fade-in .3s ease both; }
+.pres-av { position: relative; display: inline-flex; margin-left: -6px; border-radius: 50%; transition: opacity .3s, filter .3s; }
+.pres-av:first-child { margin-left: 0; }
+.pres-av .avatar { margin: 0 !important; }
+.pres-av.online .avatar { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #1e8e3e; animation: ring-pulse 2.4s ease-in-out infinite; }
+.pres-av.online::after { content: ""; position: absolute; right: -1px; bottom: -1px; width: 9px; height: 9px; border-radius: 50%; background: #1e8e3e; border: 2px solid #fff; }
+.pres-av.offline { opacity: .45; filter: grayscale(.4); }
+.conflict-banner, .version-banner { width: 816px; max-width: 100%; margin: 0 auto 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: 12px; font-size: 14px; animation: fade-up .3s var(--ease) both; }
+.conflict-banner { background: #fce8e6; border: 1px solid #f6aea9; color: #8c1d18; }
+.version-banner { background: #e8f0fe; border: 1px solid #aecbfa; color: #174ea6; }
+.conflict-banner svg, .version-banner svg { width: 18px; height: 18px; flex: none; }
+.preview-page { position: relative; }
+.preview-page::before { content: "Preview"; position: absolute; top: 14px; right: 16px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #1a73e8; background: #e8f0fe; padding: 3px 8px; border-radius: 999px; }
+.preview-page .ProseMirror { cursor: default; }
+.vlist { display: grid; gap: 2px; }
+.vitem { display: flex; gap: 12px; width: 100%; padding: 10px 12px; border: none; border-radius: 10px; background: transparent; text-align: left; cursor: pointer; transition: background .15s; animation: fade-up .3s var(--ease) both; }
+.vitem:hover { background: #fff; box-shadow: 0 1px 2px rgba(60, 64, 67, .15); }
+.vitem.active { background: #d3e3fd; }
+.vitem > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vitem strong { font-size: 14px; color: #1f1f1f; }
+.vtime { font-size: 12.5px; color: #5f6368; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vwho { display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 12.5px; color: #3c4043; }
+.vwho .avatar { width: 18px; height: 18px; font-size: 8px; box-shadow: none; }
+.vdot { width: 10px; height: 10px; margin-top: 5px; flex: none; border-radius: 50%; border: 2px solid #9aa0a6; background: #fff; }
+.vdot.current { border-color: #1a73e8; background: #1a73e8; }
