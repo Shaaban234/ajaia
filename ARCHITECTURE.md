@@ -26,6 +26,7 @@ Ownership is a column rather than a share row, so a document can never lose its 
 |---|---|---|
 | Store sanitized **HTML** | Matches the editor's native output; import and export become string transforms | Less structured than ProseMirror JSON for future diffing/versioning |
 | **Sanitize on every write** (import and save) with an allow-list | Shared documents are rendered for other users, so this prevents stored XSS | Unsupported formatting (colors, tables) is dropped |
+| Inline styles (colour, font, size, alignment) kept only via a **style allow-list** with value regexes | Rich formatting without opening CSS injection (`position`, `background-image:url()` are dropped) | Arbitrary styling isn't possible |
 | **Mocked auth**: 3 seeded users, HMAC-signed httpOnly cookie | The brief allows it; the time goes into sharing logic, not auth plumbing | Not production identity; no sign-up |
 | **Autosave with debounce** and **last-write-wins** | Simple and predictable for one active editor | Two people editing at once can overwrite each other (see below) |
 | Authorization in a **pure module** (`lib/access.ts`) | One place to reason about and unit-test | None worth noting |

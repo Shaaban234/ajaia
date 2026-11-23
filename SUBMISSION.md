@@ -23,6 +23,8 @@
 - API-enforced permissions.
 - Postgres persistence.
 - Markdown export (stretch).
+- **Full Docs-style toolbar:** fonts, sizes, colours, highlight, links, images, alignment, line spacing, checklists, indent, paint format, zoom, print, spellcheck, menu search, and an Editing/Viewing mode.
+- **General access:** "Anyone with the link" (viewer or editor) plus Copy link.
 - **Template gallery:** 7 starter templates with live previews.
 - **Write with AI:** create a document from a prompt; draft, continue, improve, shorten, expand, fix grammar or change tone of a selection, always with a preview before applying (free Grok via OpenRouter).
 
