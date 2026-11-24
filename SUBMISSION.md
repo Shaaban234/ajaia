@@ -3,12 +3,12 @@
 | Item | Location |
 |---|---|
 | Live app | https://ajaia-eta.vercel.app (demo users: alice / bob / carol `@ajaia.test`, password `demo1234`) |
-| Source code | this folder (`app/`, `components/`, `lib/`, `tests/`) |
+| Source code | `ajaia-docs-source.zip` in the Drive folder, and https://github.com/Shaaban234/ajaia |
 | Setup & run instructions | `README.md` |
 | Architecture note | `ARCHITECTURE.md` |
 | AI workflow note | `AI_WORKFLOW.md` |
 | Walkthrough video | https://www.loom.com/share/a4543e77fc1047f0ab430d6553f3e8d2 (also in `VIDEO_URL.txt`) |
-| Screenshots | `docs/screenshots/` |
+| Screenshots | `screenshots.zip` (also `docs/screenshots/` in the source) |
 | Sample files for import | `samples/` (.docx, .md, .txt) |
 
 **Test accounts:** alice@ajaia.test, bob@ajaia.test, carol@ajaia.test. The password is `demo1234` for all three, or use the one-click buttons on the login page.
@@ -39,7 +39,7 @@
 - Real authentication (mocked with seeded users).
 
 **Next 2–4 hours:**
-- Stale-write detection (409 with a reload prompt).
-- Version history with restore.
-- A presence indicator.
-- A committed Playwright end-to-end test in CI.
+- Real-time co-editing with Yjs (CRDT) over WebSockets, replacing polling and the 409 conflict prompt.
+- Suggestion mode (tracked changes) on top of the existing comment threads.
+- A committed Playwright end-to-end test running in CI against a preview deploy.
+- Real auth (email magic link or Google sign-in) instead of seeded users.
