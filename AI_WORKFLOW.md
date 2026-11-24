@@ -1,10 +1,8 @@
 # AI workflow note
 
-> **DRAFT — Shaaban: edit this into your own words before submitting.** Everything below is accurate about what the AI did. Fill in the bracketed parts with what *you* actually checked and changed.
-
 ## Tools used
 - **Claude (Anthropic)** as an AI coding assistant. I defined the scope and priorities from the brief, then used it to generate most of the implementation, the tests and first drafts of the docs, which I reviewed and verified.
-- [Add any other tools you used, e.g. Cursor or Copilot, while reviewing or tweaking.]
+- **OpenRouter** (free models) for the in-product "Write with AI" feature, so reviewers never pay for anything.
 
 ## Where AI materially sped things up
 - **Scaffolding and boilerplate:** Next.js routes, the storage interface with two implementations, and the TipTap toolbar. That is hours of typing compressed into minutes.
@@ -17,17 +15,25 @@
 - **Rejected approaches:**
   - Storing documents in Vercel Blob, because CDN caching would make "refresh shows my latest save" unreliable. Postgres was used instead.
   - Building real-time co-editing inside the timebox. It was scoped out deliberately (see ARCHITECTURE.md).
-- [Add anything **you** changed after reviewing: naming, UX copy, a rule you disagreed with, etc.]
+- **Changes I pushed for after reviewing it myself:**
+  - The first UI worked but looked plain, so I had it reworked into a Google Docs-style layout: menu bar, full toolbar, ruler, Share dialog, template gallery and outline.
+  - I scoped the stretch work to presence, comments, version history and export, and explicitly said no to multi-tab documents and suggestion mode in the time available.
+  - I had the always-on word-count footer removed and replaced with a Google Docs-style Tools → Word count dialog.
 
 ## AI inside the product
 - I added "Write with AI" because this is an AI-native role. I designed it so AI suggestions are previews the user accepts or rejects, never silent edits.
 - **Verification:**
   - Unit tests cover output cleanup, sanitizing, title extraction, the model fallback (with a mocked fetch) and the "not configured" path.
   - The full UI flow was tested in a browser against a local mock of the OpenAI-compatible API, because the sandbox couldn't reach OpenRouter.
-  - [Add: you tested it on the deployed URL with a real OpenRouter key. The original default, Grok 4.1 Fast (free), turned out to be deprecated; the fallback caught it, and the default was switched to `openrouter/free`.]
+  - Tested on the deployed URL with a real OpenRouter key. That run showed:
+    - The original default, Grok 4.1 Fast (free), had been deprecated; the fallback had silently caught it. The default is now `openrouter/free`, and the response reports which model answered and why one was skipped.
+    - "Improve writing" sometimes returned a menu of options instead of one rewrite, so the prompt was tightened.
+    - A reasoning model could return a cut-off draft, so cut-off answers are now retried.
 
 ## How correctness and quality were verified
-- `npm test`: 13 tests cover owner/editor/viewer/no-access rules, sanitizing (script, `onclick` and `javascript:` stripped), .md/.txt conversion, unsupported types, title validation, share upsert/revoke, persistence across a fresh store instance, and concurrent writes.
+- `npm test`: 26 tests cover owner/editor/viewer/no-access rules, sanitizing (script, `onclick` and `javascript:` stripped), .md/.txt conversion, unsupported types, title validation, share upsert/revoke, persistence across a fresh store instance, and concurrent writes.
 - **API checked with curl as three different users:** an unshared user gets 404, a viewer's edit gets 403, a non-owner rename gets 403, an unauthenticated request gets 401, and an unsupported upload gets 415.
 - **Browser run in Chromium:** formatting survives a reload, sharing works across accounts, viewers get a read-only editor with no toolbar, and there are no unexpected console errors. Also checked the mobile layout.
-- [Add your own manual checks on the deployed URL.]
+- **Live deployment:**
+  - A scripted 27-step run against https://ajaia-eta.vercel.app passed: login and logout, create, rename, save and sanitize, share, viewer 403, no-access 404, link access, comments, presence, versions, import/export and templates.
+  - I walked through the full flow manually in two browsers (Alice and Bob) while recording the walkthrough video.
