@@ -7,7 +7,7 @@
 | Setup & run instructions | `README.md` |
 | Architecture note | `ARCHITECTURE.md` |
 | AI workflow note | `AI_WORKFLOW.md` |
-| Walkthrough video link | `VIDEO_URL.txt` |
+| Walkthrough video | https://www.loom.com/share/a4543e77fc1047f0ab430d6553f3e8d2 (also in `VIDEO_URL.txt`) |
 | Screenshots | `docs/screenshots/` |
 | Sample files for import | `samples/` (.docx, .md, .txt) |
 

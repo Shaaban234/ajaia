@@ -1,1 +1,7 @@
-<paste your unlisted Loom/YouTube link here>
+Ajaia Docs – walkthrough video (3–5 min)
+
+Video: https://www.loom.com/share/a4543e77fc1047f0ab430d6553f3e8d2
+
+Live app: https://ajaia-eta.vercel.app
+Demo accounts (password: demo1234): alice@ajaia.test, bob@ajaia.test, carol@ajaia.test
+Source: https://github.com/Shaaban234/ajaia
